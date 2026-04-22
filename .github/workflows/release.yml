@@ -54,11 +54,13 @@ jobs:
           name: ${{ matrix.artifact_name }}
           if-no-files-found: error
           path: |
-            release/**/*.yml
-            release/**/*.exe
-            release/**/*.dmg
-            release/**/*.AppImage
-            release/**/*.deb
+            release/latest*.yml
+            release/*.blockmap
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
 
   publish-release:
     runs-on: ubuntu-latest
@@ -79,9 +81,11 @@ jobs:
           tag_name: ${{ github.ref_name }}
           target_commitish: main
           files: |
-            release-artifacts/**/*.yml
+            release-artifacts/**/latest*.yml
+            release-artifacts/**/*.blockmap
             release-artifacts/**/*.exe
             release-artifacts/**/*.dmg
+            release-artifacts/**/*.zip
             release-artifacts/**/*.AppImage
             release-artifacts/**/*.deb
           draft: false
