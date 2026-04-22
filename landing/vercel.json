@@ -3,5 +3,5 @@
   "cleanUrls": true,
   "buildCommand": "",
   "installCommand": "",
-  "outputDirectory": "landing"
+  "outputDirectory": "."
 }
