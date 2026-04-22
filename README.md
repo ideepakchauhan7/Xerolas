@@ -7,7 +7,7 @@ The public release setup is fully free:
 - private source repo
 - separate public GitHub Releases repo for downloads
 - free Cloudflare Worker backend
-- free GitHub Pages site from the public downloads repo
+- free Vercel landing page on a `*.vercel.app` subdomain
 - no paid services
 - no custom domain
 - no license flow
@@ -17,8 +17,8 @@ The public release setup is fully free:
 - Source repo: private `ideepakchauhan7/Xerolas`
 - Public downloads repo: `ideepakchauhan7/Xerolas-downloads`
 - Public downloads URL: `https://github.com/ideepakchauhan7/Xerolas-downloads/releases`
-- Public site URL: `https://ideepakchauhan7.github.io/Xerolas-downloads/`
 - Cloudflare Worker URL: `https://xerolas.ideepakchauhan7.workers.dev`
+- Vercel landing page: default `*.vercel.app` domain only
 
 ## Packaging and updates
 
@@ -47,17 +47,9 @@ Deploy:
 npm run deploy:worker
 ```
 
-### GitHub Pages
+### Vercel
 
-Publish the static `landing/` site into the public `Xerolas-downloads` repo and enable GitHub Pages there.
-
-Recommended free setup:
-
-- source: `main` branch
-- folder: `/docs`
-- public site URL: `https://ideepakchauhan7.github.io/Xerolas-downloads/`
-
-The included `publish-pages.yml` workflow syncs `landing/` into `docs/` in the public downloads repo using `DOWNLOADS_REPO_TOKEN`.
+Deploy the static `landing/` site to a free Vercel project and use the Vercel-provided subdomain. Do not configure a custom domain.
 
 ### GitHub Releases
 

@@ -5,7 +5,7 @@ This guide is the public release runbook for Xerolas using only free infrastruct
 - Private source repo: `ideepakchauhan7/Xerolas`
 - Separate public downloads repo: `ideepakchauhan7/Xerolas-downloads`
 - Public GitHub Releases for installers and update metadata from the downloads repo
-- Free GitHub Pages site from the public downloads repo
+- Free Vercel subdomain for the landing page
 - Cloudflare Worker at `https://xerolas.ideepakchauhan7.workers.dev`
 - No paid services, no custom domain, no license flow
 - Source code remains private
@@ -32,11 +32,10 @@ https://xerolas.ideepakchauhan7.workers.dev
 
 - Holds Gemini API key and session secret as Worker secrets
 
-### Public downloads and site
+### Public downloads
 
 - Installers live in GitHub Releases for `ideepakchauhan7/Xerolas-downloads`
-- Landing page is the static `landing/` directory mirrored into `docs/` in the public downloads repo
-- GitHub Pages serves the site from `https://ideepakchauhan7.github.io/Xerolas-downloads/`
+- Landing page is the static `landing/` directory deployed to a free `*.vercel.app` subdomain
 - No custom domain is required
 
 ## What gets published
@@ -53,7 +52,7 @@ GitHub Releases are the single public source of truth for all release artifacts.
 
 ## One-time setup
 
-### 1. GitHub repos
+### 1. GitHub repo
 
 Use this private source repo for development and CI:
 
@@ -61,7 +60,7 @@ Use this private source repo for development and CI:
 https://github.com/ideepakchauhan7/Xerolas.git
 ```
 
-Create this separate public downloads repo for public installers, updater metadata, and the GitHub Pages site:
+Create this separate public downloads repo for public installers and updater metadata:
 
 ```text
 https://github.com/ideepakchauhan7/Xerolas-downloads
@@ -84,36 +83,24 @@ Optional variables:
 - `CONTEXT_AI_GEMINI_FALLBACK_MODEL`
 - `CONTEXT_AI_SESSION_TTL_SECONDS`
 
-### 3. GitHub token for cross-repo releases and Pages sync
+### 3. GitHub token for cross-repo releases
 
-Add a repository secret named `DOWNLOADS_REPO_TOKEN` to the private source repo. Use a fine-grained token with:
+Add a repository secret named `DOWNLOADS_REPO_TOKEN` to the private source repo. Use a personal access token or fine-grained token with `contents: write` access to `ideepakchauhan7/Xerolas-downloads` so GitHub Actions in the private source repo can create releases in the public downloads repo.
 
-- repository access: only `ideepakchauhan7/Xerolas-downloads`
-- repository permission: `Contents = Read and write`
+### 4. Vercel
 
-That token is used by:
+Deploy the repo to a free Vercel project and either:
 
-- the release workflow to publish installers into `Xerolas-downloads`
-- the Pages sync workflow to mirror `landing/` into `docs/` in `Xerolas-downloads`
+- set the Root Directory to `landing`, or
+- keep the repo root and use the included `vercel.json` rewrite config
 
-### 4. GitHub Pages settings
+Use the default `*.vercel.app` URL only.
 
-In the public `Xerolas-downloads` repo, enable GitHub Pages with:
+Do not configure:
 
-- Source: `Deploy from a branch`
-- Branch: `main`
-- Folder: `/docs`
-
-The public site URL will be:
-
-```text
-https://ideepakchauhan7.github.io/Xerolas-downloads/
-```
-
-The private source repo cannot be used for free GitHub Pages hosting. GitHub’s docs say GitHub Pages is available on GitHub Free for public repositories, while private-repo Pages requires a paid plan. Sources:
-
-- https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages
-- https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+- custom domains
+- paid Vercel features
+- private release proxies
 
 ## Release flow
 
@@ -140,33 +127,21 @@ The release workflow runs in the private source repo on the tag and builds artif
 
 The workflow uploads all generated installers and updater metadata to the matching GitHub Release in `ideepakchauhan7/Xerolas-downloads`.
 
-### Step 4 — GitHub Actions syncs the landing page
+### Step 4 — Landing page reads the latest release
 
-The `publish-pages.yml` workflow runs on pushes to `main` in the private source repo and mirrors:
-
-- `landing/index.html`
-- `landing/main.js`
-- `landing/styles.css`
-
-into:
-
-- `docs/index.html`
-- `docs/main.js`
-- `docs/styles.css`
-
-in the public `Xerolas-downloads` repo.
-
-It also writes `.nojekyll` so GitHub Pages serves the static files directly.
-
-### Step 5 — GitHub Pages serves the site
-
-After the sync commit lands in `Xerolas-downloads/main`, GitHub Pages serves the site at:
+The landing page calls the GitHub Releases API for:
 
 ```text
-https://ideepakchauhan7.github.io/Xerolas-downloads/
+ideepakchauhan7/Xerolas-downloads
 ```
 
-### Step 6 — Installed apps update automatically
+It automatically shows:
+
+- latest version
+- release notes
+- download links for Windows / macOS / Linux
+
+### Step 5 — Installed apps update automatically
 
 Packaged Xerolas builds check public GitHub Releases in `ideepakchauhan7/Xerolas-downloads` on launch and download updates in the background through `electron-updater`.
 
@@ -180,7 +155,6 @@ That means:
 - example config points only to `xerolas.ideepakchauhan7.workers.dev`
 - packaged defaults point only to `xerolas.ideepakchauhan7.workers.dev`
 - the release repo points only to `ideepakchauhan7/Xerolas-downloads`
-- the public site points only to `https://ideepakchauhan7.github.io/Xerolas-downloads/`
 
 Older builds that still point at the old Worker URL are not preserved by this guide.
 
@@ -198,9 +172,8 @@ HOME=/tmp XDG_CONFIG_HOME=/tmp npx wrangler deploy --dry-run
 Then verify:
 
 1. `https://xerolas.ideepakchauhan7.workers.dev/health` responds
-2. `https://github.com/ideepakchauhan7/Xerolas-downloads/releases` contains the latest assets
-3. `https://ideepakchauhan7.github.io/Xerolas-downloads/` loads and pulls the latest release
-4. the packaged config points at:
+2. the landing page pulls the latest GitHub Release from `ideepakchauhan7/Xerolas-downloads`
+3. the packaged config points at:
    - `updateGithubOwner = ideepakchauhan7`
    - `updateGithubRepo = Xerolas-downloads`
    - `backendBaseUrl = https://xerolas.ideepakchauhan7.workers.dev`
@@ -212,8 +185,8 @@ Then verify:
 - AI: Gemini free-tier models
 - Installers: GitHub Releases
 - Auto-update: `electron-updater` + GitHub Releases
-- Public site: GitHub Pages from `ideepakchauhan7/Xerolas-downloads`
+- Public site: Vercel `*.vercel.app`
 
 Total required paid services: none.
 
-Assumption used in this guide: the public downloads repo is `ideepakchauhan7/Xerolas-downloads`. If you choose a different public repo name, update the workflow, landing page, packaged app defaults, and GitHub Pages URL together.
+Assumption used in this guide: the public downloads repo is `ideepakchauhan7/Xerolas-downloads`. If you choose a different public repo name, update the workflow, landing page, and packaged app defaults together.
