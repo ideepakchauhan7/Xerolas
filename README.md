@@ -53,7 +53,7 @@ Deploy the static `landing/` site to a free Vercel project and use the Vercel-pr
 
 ### GitHub Releases
 
-Tag a source release such as `v0.1.0` in the private repo and let the release workflow build and upload the artifacts into the separate public downloads repo. The workflow requires a `DOWNLOADS_REPO_TOKEN` secret with `contents: write` access to the downloads repo.
+Tag a source release such as `v0.1.9` in the private repo and let the release workflow build and upload the artifacts into the separate public downloads repo. The workflow requires a `DOWNLOADS_REPO_TOKEN` secret with `contents: write` access to the downloads repo.
 
 - Windows `.exe`
 - macOS `.dmg`
