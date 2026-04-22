@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xerolas Downloads</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        --bg: #090909;
+        --panel: #141414;
+        --panel-2: #1d1d1d;
+        --text: #f5f5f5;
+        --muted: #a8a8a8;
+        --stroke: rgba(255, 255, 255, 0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(255,255,255,0.05), transparent 36%),
+          var(--bg);
+        color: var(--text);
+      }
+      .page { max-width: 1080px; margin: 0 auto; padding: 48px 20px 72px; }
+      .hero, .panel {
+        border: 1px solid var(--stroke);
+        background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        border-radius: 28px;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+      }
+      .hero { padding: 36px; margin-bottom: 24px; }
+      .eyebrow { letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); font-size: 12px; font-weight: 700; }
+      h1 { margin: 14px 0 12px; font-size: clamp(42px, 8vw, 76px); line-height: 0.95; }
+      .lede { max-width: 760px; font-size: 18px; line-height: 1.6; color: #d8d8d8; }
+      .meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+      .chip { border-radius: 999px; border: 1px solid var(--stroke); background: rgba(255,255,255,0.04); color: var(--muted); padding: 10px 14px; font-size: 13px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+      .panel { padding: 24px; }
+      .panel h2 { margin: 0 0 14px; font-size: 22px; }
+      .download-button {
+        display: inline-flex; width: 100%; justify-content: center; align-items: center; min-height: 48px;
+        padding: 12px 16px; border-radius: 16px; border: 1px solid var(--stroke);
+        background: var(--panel-2); color: var(--text); text-decoration: none; font-weight: 700;
+      }
+      .download-button[aria-disabled="true"] { pointer-events: none; opacity: 0.5; }
+      .list { margin: 0; padding-left: 18px; color: #d0d0d0; line-height: 1.7; }
+      .links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+      .link { color: #ffffff; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.24); }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="eyebrow">Desktop AI Assistant</div>
+        <h1>Xerolas</h1>
+        <p class="lede">
+          Google Lens for your desktop. Capture anything on your screen, send it to the free Cloudflare Worker backend, and get an AI answer without switching apps or managing any API key.
+        </p>
+        <div class="meta">
+          <span class="chip" id="version-chip">Latest release: loading…</span>
+          <span class="chip">Public GitHub Releases</span>
+          <span class="chip">Free Vercel subdomain</span>
+          <span class="chip">Cloudflare Worker: xerolas</span>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Downloads</h2>
+          <div class="grid">
+            <a id="download-windows" class="download-button" aria-disabled="true" href="#">Windows</a>
+            <a id="download-macos" class="download-button" aria-disabled="true" href="#">macOS</a>
+            <a id="download-linux" class="download-button" aria-disabled="true" href="#">Linux</a>
+          </div>
+          <div class="links">
+            <a id="release-link" class="link" href="https://github.com/ideepakchauhan7/Xerolas/releases" target="_blank" rel="noreferrer">View all releases</a>
+            <a class="link" href="https://github.com/ideepakchauhan7/Xerolas" target="_blank" rel="noreferrer">Open source repo</a>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>How it works</h2>
+          <ul class="list">
+            <li>Install Xerolas and launch it once.</li>
+            <li>Use the floating widget or <code>Ctrl+Shift+Space</code> to capture any region.</li>
+            <li>Xerolas sends the image to <code>xerolas.ideepakchauhan7.workers.dev</code>.</li>
+            <li>Gemini analyzes the capture and Xerolas shows the answer beside it.</li>
+          </ul>
+        </article>
+
+        <article class="panel">
+          <h2>Release notes</h2>
+          <div id="release-notes" class="list">Loading latest release notes…</div>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+  </html>

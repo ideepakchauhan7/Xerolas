@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xerolas Capture</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./overlay.ts"></script>
+  </head>
+  <body class="overlay-page">
+    <main id="overlay-root" class="overlay-root">
+      <section class="overlay-hud glass-panel">
+        <div class="eyebrow">Screen Selection</div>
+        <h1 class="overlay-title">Drag to capture any region</h1>
+        <div class="overlay-help">
+          <span class="surface-chip">Drag across one display</span>
+          <span class="surface-chip">Press Esc to cancel</span>
+        </div>
+      </section>
+      <div id="desktop-canvas" class="desktop-canvas"></div>
+      <div id="selection-box" class="selection-box" hidden>
+        <div id="selection-dimensions" class="selection-dimensions"></div>
+      </div>
+    </main>
+  </body>
+</html>

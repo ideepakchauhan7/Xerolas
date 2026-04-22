@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xerolas Widget</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./widget.ts"></script>
+  </head>
+  <body class="widget-page">
+    <main class="widget-shell glass-panel">
+      <button id="capture-trigger" class="capture-tab" title="Double-click to capture">
+        <span class="tab-dot"></span>
+        <span class="tab-copy">
+          <span class="tab-title">Xerolas</span>
+        </span>
+      </button>
+      <div class="widget-actions">
+        <button id="toggle-result" class="icon-button" title="Show or hide the last result">
+          ✦
+        </button>
+        <button id="open-settings" class="icon-button" title="Open settings">
+          ⚙
+        </button>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-backend
+dist-electron
+release
+*.log
+.env
+.env.*
+.DS_Store
+.codex
+config/app-config.local.json
+build/app-config.json
+backend/config/server.local.json
+.wrangler
+.dev.vars
+.dev.vars.*

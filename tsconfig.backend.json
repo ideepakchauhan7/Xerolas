@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2022"
+    ],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": [
+      "node"
+    ],
+    "noEmit": false,
+    "outDir": "dist-backend",
+    "rootDir": ".",
+    "isolatedModules": false
+  },
+  "include": [
+    "backend/**/*.ts",
+    "worker/**/*.ts",
+    "worker/**/*.d.ts"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "backendBaseUrl": "https://xerolas.ideepakchauhan7.workers.dev",
+  "updateGithubOwner": "ideepakchauhan7",
+  "updateGithubRepo": "Xerolas",
+  "defaultQuickActionId": "describe",
+  "defaultPromptTemplate": "Answer the most useful question about this selected content. Focus on the main subject, solve or explain the visible content when possible, ignore browser or app chrome unless it matters, and keep the answer concise, grounded, and practical. Use plain text only."
+}

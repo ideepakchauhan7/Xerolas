@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xerolas Settings</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./settings.ts"></script>
+  </head>
+  <body class="settings-page">
+    <main class="settings-shell glass-panel">
+      <section class="settings-header">
+        <div class="settings-header-bar">
+          <div>
+            <div class="eyebrow">Desktop Search Settings</div>
+            <h1 class="settings-title">Tune how Xerolas behaves</h1>
+            <p class="settings-copy">
+              Xerolas captures screen pixels inline, sends the selected region through your hosted
+              gateway, and returns the answer into a floating result card.
+            </p>
+          </div>
+          <button id="close-settings" class="icon-button settings-close" title="Close settings">
+            ✕
+          </button>
+        </div>
+      </section>
+
+      <section id="settings-status" class="status-banner">
+        <span class="status-dot"></span>
+        <span id="settings-status-text">Loading settings…</span>
+      </section>
+
+      <form id="settings-form" class="settings-form">
+        <section class="field-group">
+          <span class="field-label">Backend gateway</span>
+          <span id="backend-info" class="field-helper">Checking gateway configuration…</span>
+        </section>
+
+        <label>
+          <span class="field-label">Global shortcut</span>
+          <input
+            id="shortcut"
+            class="text-input"
+            type="text"
+            placeholder="CommandOrControl+Shift+Space"
+          />
+        </label>
+
+        <div class="field-group">
+          <span class="field-label">Quick actions</span>
+          <div id="quick-action-presets" class="preset-row"></div>
+        </div>
+
+        <label>
+          <span class="field-label">Prompt used for each capture</span>
+          <textarea id="prompt-template" class="text-area"></textarea>
+        </label>
+
+        <div class="settings-actions">
+          <button type="submit" class="pill-button">Save settings</button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

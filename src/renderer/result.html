@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xerolas Result</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./result.ts"></script>
+  </head>
+  <body class="result-page">
+    <main class="result-card glass-panel">
+      <header class="result-header">
+        <div>
+          <div class="eyebrow">Desktop Insight</div>
+          <h1 class="result-title">Xerolas</h1>
+          <p id="result-subtitle" class="result-subtitle">Capture any region to analyze it.</p>
+        </div>
+        <div class="result-actions">
+          <button id="capture-again" class="icon-button" title="Capture again">⌁</button>
+          <button id="copy-result" class="icon-button" title="Copy result">⎘</button>
+          <button id="share-result" class="icon-button" title="Copy image and result">↗</button>
+          <button id="toggle-history" class="icon-button" title="Toggle history">☰</button>
+          <button id="minimize-result" class="icon-button" title="Minimize">—</button>
+          <button id="collapse-result" class="icon-button" title="Hide">✕</button>
+        </div>
+      </header>
+
+      <section id="quick-actions" class="result-quick-actions"></section>
+
+      <article id="result-text" class="result-body-copy"></article>
+
+      <section id="history-panel" class="history-panel">
+        <div class="field-group">
+          <span class="field-label">Recent captures</span>
+          <span class="field-helper">The last 10 captures stay available locally.</span>
+        </div>
+        <div id="history-list" class="history-list"></div>
+        <button id="clear-history" class="preset-chip" type="button">Clear history</button>
+      </section>
+    </main>
+  </body>
+</html>
