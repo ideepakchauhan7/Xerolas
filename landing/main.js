@@ -1,5 +1,6 @@
-const RELEASES_API = 'https://api.github.com/repos/ideepakchauhan7/Xerolas/releases/latest';
-const FALLBACK_RELEASES_URL = 'https://github.com/ideepakchauhan7/Xerolas/releases';
+const RELEASES_API = 'https://api.github.com/repos/ideepakchauhan7/Xerolas-downloads/releases/latest';
+const REPO_URL = 'https://github.com/ideepakchauhan7/Xerolas-downloads';
+const FALLBACK_RELEASES_URL = `${REPO_URL}/releases`;
 
 const versionChip = document.getElementById('version-chip');
 const notes = document.getElementById('release-notes');
@@ -28,11 +29,27 @@ function findAsset(assets, matcher) {
   return assets.find((asset) => matcher(asset.name.toLowerCase())) ?? null;
 }
 
+function setUnavailableState(message) {
+  versionChip.textContent = 'Latest release: not available yet';
+  notes.innerHTML = `<p>${escapeHtml(message)}</p>`;
+  setDownloadLink(windowsButton, null);
+  setDownloadLink(macosButton, null);
+  setDownloadLink(linuxButton, null);
+  releaseLink.href = FALLBACK_RELEASES_URL;
+}
+
 async function loadLatestRelease() {
   try {
     const response = await fetch(RELEASES_API, {
       headers: { Accept: 'application/vnd.github+json' }
     });
+
+    if (response.status === 404) {
+      setUnavailableState(
+        'No public GitHub release is available yet. Publish the first public release into ideepakchauhan7/Xerolas-downloads and make sure that downloads repo is publicly reachable.'
+      );
+      return;
+    }
 
     if (!response.ok) {
       throw new Error(`GitHub Releases request failed with ${response.status}`);
@@ -63,12 +80,7 @@ async function loadLatestRelease() {
           .join('')
       : '<p>No release notes were provided for the latest version.</p>';
   } catch (error) {
-    versionChip.textContent = 'Latest release: unavailable';
-    notes.innerHTML = '<p>Could not load release details right now. Use GitHub Releases directly.</p>';
-    setDownloadLink(windowsButton, null);
-    setDownloadLink(macosButton, null);
-    setDownloadLink(linuxButton, null);
-    releaseLink.href = FALLBACK_RELEASES_URL;
+    setUnavailableState('Could not load release details right now. Use the GitHub releases page directly.');
     console.error(error);
   }
 }

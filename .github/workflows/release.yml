@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-release:
@@ -42,12 +42,15 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           CONTEXT_AI_BACKEND_URL: https://xerolas.ideepakchauhan7.workers.dev
           CONTEXT_AI_UPDATE_GITHUB_OWNER: ideepakchauhan7
-          CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas
+          CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas-downloads
         run: npx electron-builder --publish never
 
-      - name: Publish assets to GitHub Release
+      - name: Publish assets to public downloads repo
         uses: softprops/action-gh-release@v2
         with:
+          repository: ideepakchauhan7/Xerolas-downloads
+          token: ${{ secrets.DOWNLOADS_REPO_TOKEN }}
+          tag_name: ${{ github.ref_name }}
           files: |
             release/**/*.yml
             release/**/*.exe

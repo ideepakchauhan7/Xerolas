@@ -2,11 +2,13 @@
 
 This guide is the public release runbook for Xerolas using only free infrastructure:
 
-- Public GitHub repo: `https://github.com/ideepakchauhan7/Xerolas.git`
-- Public GitHub Releases for installers and update metadata
+- Private source repo: `ideepakchauhan7/Xerolas`
+- Separate public downloads repo: `ideepakchauhan7/Xerolas-downloads`
+- Public GitHub Releases for installers and update metadata from the downloads repo
 - Free Vercel subdomain for the landing page
 - Cloudflare Worker at `https://xerolas.ideepakchauhan7.workers.dev`
 - No paid services, no custom domain, no license flow
+- Source code remains private
 
 ## Release architecture
 
@@ -16,7 +18,7 @@ This guide is the public release runbook for Xerolas using only free infrastruct
 - Auto-update through `electron-updater`
 - Packaged app points to:
   - `updateGithubOwner = ideepakchauhan7`
-  - `updateGithubRepo = Xerolas`
+  - `updateGithubRepo = Xerolas-downloads`
   - `backendBaseUrl = https://xerolas.ideepakchauhan7.workers.dev`
 
 ### Backend
@@ -32,7 +34,7 @@ https://xerolas.ideepakchauhan7.workers.dev
 
 ### Public downloads
 
-- Installers live in GitHub Releases for `ideepakchauhan7/Xerolas`
+- Installers live in GitHub Releases for `ideepakchauhan7/Xerolas-downloads`
 - Landing page is the static `landing/` directory deployed to a free `*.vercel.app` subdomain
 - No custom domain is required
 
@@ -52,11 +54,19 @@ GitHub Releases are the single public source of truth for all release artifacts.
 
 ### 1. GitHub repo
 
-Use this public repo:
+Use this private source repo for development and CI:
 
 ```text
 https://github.com/ideepakchauhan7/Xerolas.git
 ```
+
+Create this separate public downloads repo for public installers and updater metadata:
+
+```text
+https://github.com/ideepakchauhan7/Xerolas-downloads
+```
+
+Important: the downloads repo must be publicly reachable. If `https://github.com/ideepakchauhan7/Xerolas-downloads` returns `404` when opened in an incognito window, the landing page, GitHub Releases downloads, and auto-update checks will all fail for public users even though the source repo can remain private.
 
 ### 2. Cloudflare Worker secrets
 
@@ -73,9 +83,18 @@ Optional variables:
 - `CONTEXT_AI_GEMINI_FALLBACK_MODEL`
 - `CONTEXT_AI_SESSION_TTL_SECONDS`
 
-### 3. Vercel
+### 3. GitHub token for cross-repo releases
 
-Deploy the static `landing/` site to a free Vercel project and use the default `*.vercel.app` URL.
+Add a repository secret named `DOWNLOADS_REPO_TOKEN` to the private source repo. Use a personal access token or fine-grained token with `contents: write` access to `ideepakchauhan7/Xerolas-downloads` so GitHub Actions in the private source repo can create releases in the public downloads repo.
+
+### 4. Vercel
+
+Deploy the repo to a free Vercel project and either:
+
+- set the Root Directory to `landing`, or
+- keep the repo root and use the included `vercel.json` rewrite config
+
+Use the default `*.vercel.app` URL only.
 
 Do not configure:
 
@@ -100,20 +119,20 @@ git push origin v0.1.0
 
 ### Step 3 — GitHub Actions builds the release
 
-The release workflow runs on the tag and builds artifacts on:
+The release workflow runs in the private source repo on the tag and builds artifacts on:
 
 - Ubuntu
 - Windows
 - macOS
 
-The workflow uploads all generated installers and updater metadata to the matching GitHub Release.
+The workflow uploads all generated installers and updater metadata to the matching GitHub Release in `ideepakchauhan7/Xerolas-downloads`.
 
 ### Step 4 — Landing page reads the latest release
 
 The landing page calls the GitHub Releases API for:
 
 ```text
-ideepakchauhan7/Xerolas
+ideepakchauhan7/Xerolas-downloads
 ```
 
 It automatically shows:
@@ -124,7 +143,7 @@ It automatically shows:
 
 ### Step 5 — Installed apps update automatically
 
-Packaged Xerolas builds check public GitHub Releases on launch and download updates in the background through `electron-updater`.
+Packaged Xerolas builds check public GitHub Releases in `ideepakchauhan7/Xerolas-downloads` on launch and download updates in the background through `electron-updater`.
 
 ## Immediate Worker cutover
 
@@ -135,7 +154,7 @@ That means:
 - all new docs point only to `xerolas.ideepakchauhan7.workers.dev`
 - example config points only to `xerolas.ideepakchauhan7.workers.dev`
 - packaged defaults point only to `xerolas.ideepakchauhan7.workers.dev`
-- the release repo points only to `ideepakchauhan7/Xerolas`
+- the release repo points only to `ideepakchauhan7/Xerolas-downloads`
 
 Older builds that still point at the old Worker URL are not preserved by this guide.
 
@@ -153,10 +172,10 @@ HOME=/tmp XDG_CONFIG_HOME=/tmp npx wrangler deploy --dry-run
 Then verify:
 
 1. `https://xerolas.ideepakchauhan7.workers.dev/health` responds
-2. the landing page pulls the latest GitHub Release from `ideepakchauhan7/Xerolas`
+2. the landing page pulls the latest GitHub Release from `ideepakchauhan7/Xerolas-downloads`
 3. the packaged config points at:
    - `updateGithubOwner = ideepakchauhan7`
-   - `updateGithubRepo = Xerolas`
+   - `updateGithubRepo = Xerolas-downloads`
    - `backendBaseUrl = https://xerolas.ideepakchauhan7.workers.dev`
 
 ## Free-stack summary
@@ -169,3 +188,5 @@ Then verify:
 - Public site: Vercel `*.vercel.app`
 
 Total required paid services: none.
+
+Assumption used in this guide: the public downloads repo is `ideepakchauhan7/Xerolas-downloads`. If you choose a different public repo name, update the workflow, landing page, and packaged app defaults together.
