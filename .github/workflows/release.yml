@@ -87,5 +87,10 @@ jobs:
           draft: false
           prerelease: false
           append_body: false
-          generate_release_notes: true
+          body: |
+            Automated Xerolas desktop release artifacts for source tag `${{ github.ref_name }}`.
+
+            Source repo: `ideepakchauhan7/Xerolas`
+            Downloads repo: `ideepakchauhan7/Xerolas-downloads`
+          generate_release_notes: false
           fail_on_unmatched_files: false
