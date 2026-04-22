@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build-release:
@@ -17,8 +18,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            artifact_name: release-ubuntu
           - os: windows-latest
+            artifact_name: release-windows
           - os: macos-latest
+            artifact_name: release-macos
 
     steps:
       - name: Checkout
@@ -38,12 +42,34 @@ jobs:
 
       - name: Build release artifacts
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           CONTEXT_AI_BACKEND_URL: https://xerolas.ideepakchauhan7.workers.dev
           CONTEXT_AI_UPDATE_GITHUB_OWNER: ideepakchauhan7
           CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas-downloads
         run: npx electron-builder --publish never
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          if-no-files-found: error
+          path: |
+            release/**/*.yml
+            release/**/*.exe
+            release/**/*.dmg
+            release/**/*.AppImage
+            release/**/*.deb
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: build-release
+
+    steps:
+      - name: Download built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
 
       - name: Publish assets to public downloads repo
         uses: softprops/action-gh-release@v2
@@ -52,11 +78,11 @@ jobs:
           token: ${{ secrets.DOWNLOADS_REPO_TOKEN }}
           tag_name: ${{ github.ref_name }}
           files: |
-            release/**/*.yml
-            release/**/*.exe
-            release/**/*.dmg
-            release/**/*.AppImage
-            release/**/*.deb
+            release-artifacts/**/*.yml
+            release-artifacts/**/*.exe
+            release-artifacts/**/*.dmg
+            release-artifacts/**/*.AppImage
+            release-artifacts/**/*.deb
           draft: false
           prerelease: false
           append_body: false
