@@ -77,6 +77,7 @@ jobs:
           repository: ideepakchauhan7/Xerolas-downloads
           token: ${{ secrets.DOWNLOADS_REPO_TOKEN }}
           tag_name: ${{ github.ref_name }}
+          target_commitish: main
           files: |
             release-artifacts/**/*.yml
             release-artifacts/**/*.exe
