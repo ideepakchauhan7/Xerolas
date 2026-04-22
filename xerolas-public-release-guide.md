@@ -113,8 +113,8 @@ Update the desktop app version in `package.json`.
 Create and push a tag such as:
 
 ```bash
-git tag v0.1.9
-git push origin v0.1.9
+git tag v0.1.10
+git push origin v0.1.10
 ```
 
 ### Step 3 — GitHub Actions builds the release
