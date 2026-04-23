@@ -45,19 +45,27 @@ export async function Downloads() {
   const deb = pickAsset(assets, (asset) => asset.name.endsWith(".deb"));
 
   const downloadOptions = [
-    { label: "Windows", href: windows?.browser_download_url ?? RELEASES_PAGE, meta: windows?.name ?? "NSIS installer (.exe)" },
-    { label: "macOS", href: mac?.browser_download_url ?? RELEASES_PAGE, meta: mac?.name ?? "Apple Silicon dmg" },
-    { label: "Linux AppImage", href: appImage?.browser_download_url ?? RELEASES_PAGE, meta: appImage?.name ?? "Portable AppImage" },
-    { label: "Linux .deb", href: deb?.browser_download_url ?? RELEASES_PAGE, meta: deb?.name ?? "Debian package" },
+    {
+      label: "Download for Windows",
+      href: windows?.browser_download_url ?? RELEASES_PAGE,
+      meta: windows?.name ?? "Windows 10 / 11 · .exe installer",
+    },
+    {
+      label: "Download for macOS",
+      href: mac?.browser_download_url ?? RELEASES_PAGE,
+      meta: mac?.name ?? "macOS 12+ · .dmg installer",
+    },
+    {
+      label: "Download for Linux",
+      href: appImage?.browser_download_url ?? RELEASES_PAGE,
+      meta: appImage?.name ?? "Ubuntu, Fedora & more · .AppImage",
+    },
+    {
+      label: "Linux .deb",
+      href: deb?.browser_download_url ?? RELEASES_PAGE,
+      meta: deb?.name ?? "Debian package for Linux desktops",
+    },
   ];
-
-  const published = release?.published_at
-    ? new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }).format(new Date(release.published_at))
-    : null;
 
   return (
     <section id="download" className="relative py-24 px-4 border-t border-white/[0.05]">
@@ -69,10 +77,12 @@ export async function Downloads() {
             Download Xerolas
           </p>
           <h2 className="font-heading text-4xl sm:text-5xl font-bold text-white mb-5">
-            Public installers, ready now.
+            Free public installers,
+            <br />
+            <span className="text-neutral-500">ready now.</span>
           </h2>
           <p className="text-neutral-400 max-w-2xl mx-auto text-lg leading-relaxed">
-            Download Xerolas for Windows, macOS, or Linux directly from the public release feed. No sign-in and no API key setup required.
+            Install Xerolas on Windows, macOS, or Linux and start using desktop-wide AI screen intelligence right away.
           </p>
         </div>
 
@@ -86,7 +96,7 @@ export async function Downloads() {
                 {release?.tag_name ?? "GitHub Releases"}
               </div>
               <div className="mt-3 text-sm text-neutral-400">
-                {published ? `Published ${published}` : "Installers are published from the public downloads repository."}
+                Free public downloads · No account required · Works on Windows, macOS & Linux
               </div>
             </div>
 
@@ -97,7 +107,7 @@ export async function Downloads() {
                 rel="noreferrer"
                 className="px-5 py-2.5 rounded-full border border-white/10 text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all duration-200"
               >
-                View release notes
+                See changelog on GitHub
               </a>
               <a
                 href="https://github.com/ideepakchauhan7/Xerolas-downloads"
@@ -130,7 +140,7 @@ export async function Downloads() {
 
           <div className="mt-8 flex flex-wrap gap-6 text-xs text-neutral-600">
             <span>✓ Public GitHub release assets</span>
-            <span>✓ Auto-update feed included</span>
+            <span>✓ Silent auto-update feed included</span>
             <span>✓ Windows, macOS, and Linux builds</span>
           </div>
         </div>

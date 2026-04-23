@@ -4,17 +4,52 @@ const overlayRoot = document.getElementById('overlay-root') as HTMLDivElement;
 const desktopCanvas = document.getElementById('desktop-canvas') as HTMLDivElement;
 const selectionBox = document.getElementById('selection-box') as HTMLDivElement;
 const selectionDimensions = document.getElementById('selection-dimensions') as HTMLDivElement;
+const overlayToolbarStatus = document.getElementById('overlay-toolbar-status') as HTMLSpanElement;
+const overlayToolbarText = document.getElementById('overlay-toolbar-text') as HTMLParagraphElement;
 
 let payload: OverlayPayload | null = null;
 let activeDisplay: DisplaySnapshot | null = null;
 let dragStart: { x: number; y: number } | null = null;
+let submitting = false;
+
+function setOverlayState(
+  state: 'ready' | 'dragging' | 'processing' | 'error',
+  options: { label?: string; text?: string } = {}
+): void {
+  overlayRoot.dataset.state = state;
+
+  const defaults = {
+    ready: {
+      label: 'Ready',
+      text: 'Drag anywhere on your screen. Xerolas starts analyzing as soon as you release.'
+    },
+    dragging: {
+      label: 'Selecting',
+      text: 'Release the mouse to keep this capture open and start the answer beside it.'
+    },
+    processing: {
+      label: 'Analyzing',
+      text: 'This capture stays open while Xerolas builds the answer in the side panel.'
+    },
+    error: {
+      label: 'Retry',
+      text: 'Something interrupted the capture. Drag again or press Esc to exit.'
+    }
+  }[state];
+
+  overlayToolbarStatus.textContent = options.label ?? defaults.label;
+  overlayToolbarText.textContent = options.text ?? defaults.text;
+  overlayToolbarStatus.className = `surface-chip overlay-toolbar-status is-${state}`;
+}
 
 function applyPayload(nextPayload: OverlayPayload): void {
   payload = nextPayload;
   activeDisplay = null;
   dragStart = null;
+  submitting = false;
   selectionBox.hidden = true;
   renderDisplaySnapshots(nextPayload);
+  setOverlayState('ready');
 }
 
 function renderDisplaySnapshots(currentPayload: OverlayPayload): void {
@@ -105,7 +140,7 @@ function createSelectionRect(from: { x: number; y: number }, to: { x: number; y:
 }
 
 overlayRoot.addEventListener('pointerdown', (event) => {
-  if (!payload) {
+  if (!payload || submitting) {
     return;
   }
 
@@ -118,10 +153,11 @@ overlayRoot.addEventListener('pointerdown', (event) => {
   activeDisplay = display;
   dragStart = clampPointToDisplay(point, display);
   overlayRoot.setPointerCapture(event.pointerId);
+  setOverlayState('dragging');
 });
 
 overlayRoot.addEventListener('pointermove', (event) => {
-  if (!dragStart || !activeDisplay) {
+  if (!dragStart || !activeDisplay || submitting) {
     return;
   }
 
@@ -130,7 +166,7 @@ overlayRoot.addEventListener('pointermove', (event) => {
 });
 
 overlayRoot.addEventListener('pointerup', async (event) => {
-  if (!dragStart || !activeDisplay) {
+  if (!dragStart || !activeDisplay || submitting) {
     return;
   }
 
@@ -142,6 +178,7 @@ overlayRoot.addEventListener('pointerup', async (event) => {
   if (rect.width < 12 || rect.height < 12) {
     activeDisplay = null;
     selectionBox.hidden = true;
+    setOverlayState('ready');
     return;
   }
 
@@ -151,7 +188,17 @@ overlayRoot.addEventListener('pointerup', async (event) => {
   };
 
   activeDisplay = null;
-  await window.desktopAssistant.submitSelection(selection);
+  submitting = true;
+  setOverlayState('processing');
+
+  try {
+    await window.desktopAssistant.submitSelection(selection);
+  } catch (error) {
+    console.error(error);
+    setOverlayState('error');
+  } finally {
+    submitting = false;
+  }
 });
 
 window.addEventListener('keydown', async (event) => {

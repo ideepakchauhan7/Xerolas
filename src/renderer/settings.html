@@ -13,55 +13,97 @@
   </head>
   <body class="settings-page">
     <main class="settings-shell glass-panel">
+      <div class="settings-backdrop-orb settings-backdrop-orb--violet"></div>
+      <div class="settings-backdrop-orb settings-backdrop-orb--blue"></div>
+
       <section class="settings-header">
-        <div class="settings-header-bar">
-          <div>
-            <div class="eyebrow">Desktop Search Settings</div>
-            <h1 class="settings-title">Tune how Xerolas behaves</h1>
-            <p class="settings-copy">
-              Xerolas captures screen pixels inline, sends the selected region through your hosted
-              gateway, and returns the answer into a floating result card.
-            </p>
+        <div class="settings-header-copy">
+          <div class="settings-badge-row">
+            <span class="surface-chip result-badge">
+              <span class="result-badge-dot"></span>
+              Desktop AI
+            </span>
+            <span class="settings-header-note">Landing-style control center for capture behavior, prompts, and shortcut flow.</span>
           </div>
-          <button id="close-settings" class="icon-button settings-close" title="Close settings">
-            ✕
-          </button>
+          <div class="eyebrow">Desktop search settings</div>
+          <h1 class="settings-title">Tune how Xerolas behaves</h1>
+          <p class="settings-copy">
+            Xerolas captures screen pixels inline, sends the selected region through your hosted gateway,
+            and returns the answer into a floating result card beside your capture.
+          </p>
         </div>
+        <button id="close-settings" class="icon-button settings-close" title="Close settings" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>
+        </button>
       </section>
 
-      <section id="settings-status" class="status-banner">
+      <section id="settings-status" class="status-banner settings-status-banner">
         <span class="status-dot"></span>
         <span id="settings-status-text">Loading settings…</span>
       </section>
 
+      <section class="settings-overview-grid">
+        <article class="settings-overview-card">
+          <span class="result-section-label">Gateway</span>
+          <h2 id="summary-backend" class="settings-overview-value">Checking…</h2>
+          <p class="settings-overview-copy">Hosted desktop analysis endpoint.</p>
+        </article>
+        <article class="settings-overview-card">
+          <span class="result-section-label">Shortcut</span>
+          <h2 id="summary-shortcut" class="settings-overview-value">Loading…</h2>
+          <p class="settings-overview-copy">Global shortcut from anywhere on the desktop.</p>
+        </article>
+        <article class="settings-overview-card">
+          <span class="result-section-label">Default mode</span>
+          <h2 id="summary-action" class="settings-overview-value">AI Overview</h2>
+          <p class="settings-overview-copy">The first action Xerolas applies to a new capture.</p>
+        </article>
+      </section>
+
       <form id="settings-form" class="settings-form">
-        <section class="field-group">
-          <span class="field-label">Backend gateway</span>
-          <span id="backend-info" class="field-helper">Checking gateway configuration…</span>
+        <section class="settings-grid">
+          <article class="settings-card field-group">
+            <span class="field-label">Backend gateway</span>
+            <span id="backend-info" class="field-helper">Checking gateway configuration…</span>
+          </article>
+
+          <label class="settings-card settings-input-card">
+            <span class="field-label">Global shortcut</span>
+            <input
+              id="shortcut"
+              class="text-input"
+              type="text"
+              placeholder="CommandOrControl+Shift+Space"
+            />
+            <span class="field-helper">Runs globally while Xerolas stays in the background.</span>
+          </label>
         </section>
 
-        <label>
-          <span class="field-label">Global shortcut</span>
-          <input
-            id="shortcut"
-            class="text-input"
-            type="text"
-            placeholder="CommandOrControl+Shift+Space"
-          />
-        </label>
+        <section class="settings-card settings-panel">
+          <div class="settings-panel-head">
+            <div>
+              <span class="result-section-label">Quick actions</span>
+              <h2 class="settings-panel-title">Choose your default capture mode</h2>
+            </div>
+            <span class="surface-chip settings-panel-chip">Re-use the same capture across modes</span>
+          </div>
+          <div id="quick-action-presets" class="preset-row settings-preset-grid"></div>
+        </section>
 
-        <div class="field-group">
-          <span class="field-label">Quick actions</span>
-          <div id="quick-action-presets" class="preset-row"></div>
-        </div>
-
-        <label>
-          <span class="field-label">Prompt used for each capture</span>
+        <label class="settings-card settings-panel settings-editor-card">
+          <div class="settings-panel-head">
+            <div>
+              <span class="result-section-label">Prompt template</span>
+              <h2 class="settings-panel-title">Prompt used for each capture</h2>
+            </div>
+            <span class="surface-chip settings-panel-chip">Customize the answer style</span>
+          </div>
           <textarea id="prompt-template" class="text-area"></textarea>
         </label>
 
         <div class="settings-actions">
-          <button type="submit" class="pill-button">Save settings</button>
+          <button type="submit" class="pill-button">Save desktop settings</button>
+          <span class="settings-actions-note">Changes apply as soon as the save completes.</span>
         </div>
       </form>
     </main>

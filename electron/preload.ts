@@ -6,6 +6,7 @@ import type {
   HistoryViewModel,
   OverlayPayload,
   QuickActionId,
+  ResultStreamState,
   SaveSettingsInput,
   SaveSettingsResult,
   SelectionPayload,
@@ -43,6 +44,10 @@ const api: DesktopAssistantApi = {
   cancelSelection: () => ipcRenderer.invoke('overlay:cancel') as Promise<void>,
   getResult: () => ipcRenderer.invoke('result:get') as Promise<AnalysisResult | null>,
   onResult: (listener) => subscribe<AnalysisResult>('result:update', listener),
+  getResultStream: () =>
+    ipcRenderer.invoke('result:stream:get') as Promise<ResultStreamState | null>,
+  onResultStream: (listener) =>
+    subscribe<ResultStreamState | null>('result:stream', listener),
   getHistory: () => ipcRenderer.invoke('history:get') as Promise<HistoryViewModel>,
   onHistory: (listener) => subscribe<HistoryViewModel>('history:update', listener),
   selectHistoryEntry: (id) => ipcRenderer.invoke('history:select', id) as Promise<void>,

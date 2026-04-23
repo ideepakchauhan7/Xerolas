@@ -12,15 +12,26 @@
     <script type="module" src="./overlay.ts"></script>
   </head>
   <body class="overlay-page">
-    <main id="overlay-root" class="overlay-root">
-      <section class="overlay-hud glass-panel">
-        <div class="eyebrow">Screen Selection</div>
-        <h1 class="overlay-title">Drag to capture any region</h1>
-        <div class="overlay-help">
-          <span class="surface-chip">Drag across one display</span>
-          <span class="surface-chip">Press Esc to cancel</span>
+    <main id="overlay-root" class="overlay-root" data-state="ready">
+      <div class="overlay-toolbar glass-panel">
+        <div class="overlay-toolbar-primary">
+          <span class="surface-chip overlay-toolbar-badge">
+            <span class="result-badge-dot"></span>
+            Desktop AI
+          </span>
+          <span id="overlay-toolbar-status" class="surface-chip overlay-toolbar-status">Ready</span>
         </div>
-      </section>
+        <div class="overlay-toolbar-copy">
+          <div class="eyebrow">Screen capture</div>
+          <p id="overlay-toolbar-text" class="overlay-toolbar-text">
+            Drag anywhere on your screen. Xerolas starts analyzing as soon as you release.
+          </p>
+        </div>
+        <div class="overlay-toolbar-actions">
+          <span class="surface-chip overlay-toolbar-chip">Esc to cancel</span>
+        </div>
+      </div>
+
       <div id="desktop-canvas" class="desktop-canvas"></div>
       <div id="selection-box" class="selection-box" hidden>
         <div id="selection-dimensions" class="selection-dimensions"></div>

@@ -1,5 +1,5 @@
 import type { BackendRuntimeContext } from './config';
-import { analyzeImageWithGemini } from './gemini';
+import { analyzeImageWithGemini, streamImageWithGemini } from './gemini';
 import {
   authorizeAnalyzeRequest,
   issueSessionToken,
@@ -30,6 +30,21 @@ function json(status: number, payload: JsonRecord): Response {
       'Content-Type': 'application/json; charset=utf-8'
     }
   });
+}
+
+function sseHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Headers': `Content-Type, ${SESSION_HEADER}, ${NONCE_HEADER}, ${TIMESTAMP_HEADER}`,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Origin': '*',
+    'Cache-Control': 'no-store',
+    Connection: 'keep-alive',
+    'Content-Type': 'text/event-stream; charset=utf-8'
+  };
+}
+
+function encodeSseEvent(event: string, payload: JsonRecord): string {
+  return `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
 }
 
 async function readJsonBody(request: Request): Promise<JsonRecord> {
@@ -107,6 +122,20 @@ async function readAnalyzeRequest(request: Request): Promise<AnalyzeRequestPaylo
   };
 }
 
+function getAnalyzeErrorStatus(message: string): number {
+  return message.includes('temporarily waiting for Gemini capacity')
+    ? 503
+    : message.includes('Missing backend trust headers') ||
+        message.includes('session token') ||
+        message.includes('request timestamp')
+      ? 401
+      : message.includes('nonce has already been used')
+        ? 409
+      : message.includes('captured image')
+        ? 400
+        : 502;
+}
+
 async function handleSessionBootstrap(
   request: Request,
   context: BackendRuntimeContext
@@ -165,19 +194,98 @@ async function handleAnalyze(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The Gemini request failed.';
-    const status =
-      message.includes('temporarily waiting for Gemini capacity')
-        ? 503
-        : message.includes('Missing backend trust headers') ||
-            message.includes('session token') ||
-            message.includes('request timestamp')
-          ? 401
-          : message.includes('nonce has already been used')
-            ? 409
-        : message.includes('captured image')
-          ? 400
-          : 502;
-    return json(status, {
+    return json(getAnalyzeErrorStatus(message), {
+      message: error instanceof Error ? error.message : 'The Gemini request failed.'
+    });
+  }
+}
+
+async function handleAnalyzeStream(
+  request: Request,
+  context: BackendRuntimeContext
+): Promise<Response> {
+  if (!context.config.geminiApiKey) {
+    return json(503, {
+      message: 'Configure GEMINI_API_KEY before using analysis.'
+    });
+  }
+
+  try {
+    await authorizeAnalyzeRequest(request, context);
+    const payload = await readAnalyzeRequest(request);
+    const opened = await streamImageWithGemini({
+      apiKey: context.config.geminiApiKey,
+      primaryModel: context.config.geminiModel,
+      fallbackModel: context.config.geminiFallbackModel,
+      promptTemplate: payload.promptTemplate,
+      imageMimeType: payload.imageMimeType,
+      imageBase64Data: payload.imageBase64Data
+    });
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        let aggregateText = '';
+
+        controller.enqueue(
+          encoder.encode(
+            encodeSseEvent('meta', {
+              provider: 'gemini',
+              model: opened.model,
+              quickActionId: payload.quickActionId,
+              usedFallback: opened.usedFallback
+            })
+          )
+        );
+
+        try {
+          for await (const chunk of opened.stream) {
+            if (!chunk) {
+              continue;
+            }
+
+            aggregateText += chunk;
+            controller.enqueue(
+              encoder.encode(
+                encodeSseEvent('delta', {
+                  text: chunk
+                })
+              )
+            );
+          }
+
+          controller.enqueue(
+            encoder.encode(
+              encodeSseEvent('complete', {
+                text: aggregateText,
+                provider: 'gemini',
+                model: opened.model,
+                quickActionId: payload.quickActionId,
+                usedFallback: opened.usedFallback
+              })
+            )
+          );
+        } catch (error) {
+          controller.enqueue(
+            encoder.encode(
+              encodeSseEvent('error', {
+                message: error instanceof Error ? error.message : 'The streamed Gemini request failed.'
+              })
+            )
+          );
+        } finally {
+          controller.close();
+        }
+      }
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: sseHeaders()
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The Gemini request failed.';
+    return json(getAnalyzeErrorStatus(message), {
       message: error instanceof Error ? error.message : 'The Gemini request failed.'
     });
   }
@@ -201,7 +309,8 @@ export async function handleBackendRequest(
       routes: {
         health: '/health',
         session: '/api/v1/session',
-        analyze: '/api/v1/analyze'
+        analyze: '/api/v1/analyze',
+        analyzeStream: '/api/v1/analyze/stream'
       }
     });
   }
@@ -224,6 +333,10 @@ export async function handleBackendRequest(
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/v1/analyze') {
     return handleAnalyze(request, context);
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/v1/analyze/stream') {
+    return handleAnalyzeStream(request, context);
   }
 
   return json(404, { message: 'Not found.' });

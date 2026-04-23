@@ -5,8 +5,9 @@ import Link from "next/link";
 
 const NAV_LINKS = [
   { label: "Download", href: "#download" },
-  { label: "How it works", href: "#features" },
-  { label: "Capabilities", href: "#strategies" },
+  { label: "Problem", href: "#problem" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Comparison", href: "#comparison" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -69,16 +70,16 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <Link
-            href="#demo"
+            href="#download"
             className="px-4 py-1.5 text-sm text-neutral-300 hover:text-white rounded-full hover:bg-white/5 transition-all duration-200"
           >
-            See workflow
+            View downloads
           </Link>
           <Link
-            href="#download"
+            href="#how-it-works"
             className="px-4 py-1.5 text-sm font-medium bg-white text-black rounded-full hover:bg-neutral-200 transition-all duration-200"
           >
-            Download app
+            Learn how it works
           </Link>
         </div>
       </nav>
@@ -119,16 +120,16 @@ export function Navbar() {
           ))}
           <div className="border-t border-white/10 mt-2 pt-2 flex flex-col gap-2">
             <Link
-              href="#demo"
+              href="#download"
               className="px-3 py-2 text-sm text-center text-neutral-300 hover:text-white rounded-lg hover:bg-white/5 transition-all"
             >
-              See workflow
+              View downloads
             </Link>
             <Link
-              href="#download"
+              href="#how-it-works"
               className="px-3 py-2 text-sm font-medium text-center bg-white text-black rounded-lg hover:bg-neutral-200 transition-all"
             >
-              Download app
+              Learn how it works
             </Link>
           </div>
         </div>

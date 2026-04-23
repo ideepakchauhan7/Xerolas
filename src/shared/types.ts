@@ -73,6 +73,14 @@ export interface HistoryViewModel {
   limit: number;
 }
 
+export interface ResultStreamState {
+  status: 'loading' | 'streaming' | 'error';
+  quickActionId: QuickActionId;
+  text: string;
+  message: string | null;
+  selection: SelectionPayload | null;
+}
+
 export interface WidgetPositionMap {
   [displayId: string]: Point;
 }
@@ -135,6 +143,8 @@ export interface DesktopAssistantApi {
   cancelSelection: () => Promise<void>;
   getResult: () => Promise<AnalysisResult | null>;
   onResult: (listener: (result: AnalysisResult) => void) => () => void;
+  getResultStream: () => Promise<ResultStreamState | null>;
+  onResultStream: (listener: (result: ResultStreamState | null) => void) => () => void;
   getHistory: () => Promise<HistoryViewModel>;
   onHistory: (listener: (history: HistoryViewModel) => void) => () => void;
   selectHistoryEntry: (id: string) => Promise<void>;
@@ -224,7 +234,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   shortcut: DEFAULT_SHORTCUT,
   widgetPositions: {},
   resultWindowSize: {
-    width: 392,
-    height: 980
+    width: 420,
+    height: 500
   }
 };

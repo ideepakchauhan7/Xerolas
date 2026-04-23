@@ -17,6 +17,12 @@ interface GeminiPart {
   text?: string;
 }
 
+interface GeminiOpenStreamResult {
+  stream: AsyncGenerator<string>;
+  model: string;
+  usedFallback: boolean;
+}
+
 const SHARED_GEMINI_INSTRUCTION = [
   'You are Xerolas, a desktop visual assistant.',
   'Focus on the main subject inside the selected region.',
@@ -27,7 +33,11 @@ const SHARED_GEMINI_INSTRUCTION = [
   'Use plain text only. Do not use markdown tables, code fences, or bold markers.'
 ].join(' ');
 
-function extractGeminiText(payload: Record<string, unknown>): string {
+function buildGeminiPrompt(promptTemplate: string): string {
+  return `${SHARED_GEMINI_INSTRUCTION}\n\nUser request:\n${promptTemplate.trim()}`;
+}
+
+function extractGeminiTextChunk(payload: Record<string, unknown>): string {
   const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
 
   for (const candidate of candidates) {
@@ -35,8 +45,7 @@ function extractGeminiText(payload: Record<string, unknown>): string {
     const parts = Array.isArray(content?.parts) ? content.parts : [];
     const text = parts
       .map((part) => (typeof part.text === 'string' ? part.text : ''))
-      .join('')
-      .trim();
+      .join('');
 
     if (text) {
       return text;
@@ -48,11 +57,7 @@ function extractGeminiText(payload: Record<string, unknown>): string {
     throw new Error(`Gemini blocked the request: ${promptFeedback.blockReason.trim()}.`);
   }
 
-  throw new Error('Gemini returned no text for this image.');
-}
-
-function buildGeminiPrompt(promptTemplate: string): string {
-  return `${SHARED_GEMINI_INSTRUCTION}\n\nUser request:\n${promptTemplate.trim()}`;
+  return '';
 }
 
 function sleep(ms: number): Promise<void> {
@@ -61,53 +66,75 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
-async function requestGeminiAnalysis(input: {
+function createGeminiRequestBody(input: {
+  promptTemplate: string;
+  imageMimeType: string;
+  imageBase64Data: string;
+}): string {
+  return JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: buildGeminiPrompt(input.promptTemplate) },
+          {
+            inline_data: {
+              mime_type: input.imageMimeType,
+              data: input.imageBase64Data
+            }
+          }
+        ]
+      }
+    ]
+  });
+}
+
+function parseSseBuffer(buffer: string): {
+  events: string[];
+  remainder: string;
+} {
+  const normalized = buffer.replace(/\r\n/g, '\n');
+  const parts = normalized.split('\n\n');
+  const remainder = parts.pop() ?? '';
+  return {
+    events: parts,
+    remainder
+  };
+}
+
+async function requestGeminiAnalysisStream(input: {
   apiKey: string;
   model: string;
   promptTemplate: string;
   imageMimeType: string;
   imageBase64Data: string;
-}): Promise<{ text: string; model: string }> {
+}): Promise<{ stream: AsyncGenerator<string>; model: string }> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:streamGenerateContent?alt=sse`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': input.apiKey
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: buildGeminiPrompt(input.promptTemplate) },
-              {
-                inline_data: {
-                  mime_type: input.imageMimeType,
-                  data: input.imageBase64Data
-                }
-              }
-            ]
-          }
-        ]
-      })
+      body: createGeminiRequestBody(input)
     }
   );
 
-  const rawBody = await response.text();
-  let payload: Record<string, unknown> = {};
+  const parseProviderError = async (): Promise<never> => {
+    const rawBody = await response.text();
+    let payload: Record<string, unknown> = {};
 
-  try {
-    payload = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
-  } catch {
-    payload = {};
-  }
+    try {
+      payload = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
+    } catch {
+      payload = {};
+    }
 
-  if (!response.ok) {
     const errorMessage =
       (payload.error as { message?: unknown } | undefined)?.message ??
       rawBody.trim() ??
       'Gemini request failed.';
+
     throw new ProviderRequestError(
       'gemini',
       response.status,
@@ -116,19 +143,78 @@ async function requestGeminiAnalysis(input: {
         : 'Gemini request failed.',
       isRetryableStatus(response.status)
     );
+  };
+
+  if (!response.ok) {
+    await parseProviderError();
   }
 
+  if (!response.body) {
+    throw new Error('Gemini returned no stream for this image.');
+  }
+
+  const stream = async function* (): AsyncGenerator<string> {
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const processEventBlock = (block: string): string[] => {
+      const dataLines = block
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trimStart())
+        .filter(Boolean);
+
+      if (!dataLines.length) {
+        return [];
+      }
+
+      const payloadText = dataLines.join('\n').trim();
+      if (!payloadText || payloadText === '[DONE]') {
+        return [];
+      }
+
+      const payload = JSON.parse(payloadText) as Record<string, unknown>;
+      const chunkText = extractGeminiTextChunk(payload);
+      return chunkText ? [chunkText] : [];
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      const parsed = parseSseBuffer(buffer);
+      buffer = parsed.remainder;
+
+      for (const block of parsed.events) {
+        const chunks = processEventBlock(block);
+        for (const chunk of chunks) {
+          yield chunk;
+        }
+      }
+
+      if (done) {
+        break;
+      }
+    }
+
+    const trailing = buffer.trim();
+    if (trailing) {
+      const chunks = processEventBlock(trailing);
+      for (const chunk of chunks) {
+        yield chunk;
+      }
+    }
+  };
+
   return {
-    text: extractGeminiText(payload),
+    stream: stream(),
     model: input.model
   };
 }
 
-export async function analyzeImageWithGemini(
-  input: AnalyzeImageInput
-): Promise<{ text: string; model: string; usedFallback: boolean }> {
+async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<GeminiOpenStreamResult> {
   try {
-    const primaryResult = await requestGeminiAnalysis({
+    const primary = await requestGeminiAnalysisStream({
       apiKey: input.apiKey,
       model: input.primaryModel,
       promptTemplate: input.promptTemplate,
@@ -136,7 +222,7 @@ export async function analyzeImageWithGemini(
       imageBase64Data: input.imageBase64Data
     });
     return {
-      ...primaryResult,
+      ...primary,
       usedFallback: false
     };
   } catch (initialError) {
@@ -148,7 +234,7 @@ export async function analyzeImageWithGemini(
   await sleep(700);
 
   try {
-    const retryResult = await requestGeminiAnalysis({
+    const retry = await requestGeminiAnalysisStream({
       apiKey: input.apiKey,
       model: input.primaryModel,
       promptTemplate: input.promptTemplate,
@@ -156,7 +242,7 @@ export async function analyzeImageWithGemini(
       imageBase64Data: input.imageBase64Data
     });
     return {
-      ...retryResult,
+      ...retry,
       usedFallback: false
     };
   } catch (retryError) {
@@ -167,7 +253,7 @@ export async function analyzeImageWithGemini(
 
   if (input.fallbackModel && input.fallbackModel !== input.primaryModel) {
     try {
-      const fallbackResult = await requestGeminiAnalysis({
+      const fallback = await requestGeminiAnalysisStream({
         apiKey: input.apiKey,
         model: input.fallbackModel,
         promptTemplate: input.promptTemplate,
@@ -175,7 +261,7 @@ export async function analyzeImageWithGemini(
         imageBase64Data: input.imageBase64Data
       });
       return {
-        ...fallbackResult,
+        ...fallback,
         usedFallback: true
       };
     } catch (fallbackError) {
@@ -186,4 +272,31 @@ export async function analyzeImageWithGemini(
   }
 
   throw new Error('Xerolas is temporarily waiting for Gemini capacity. Please try again in a moment.');
+}
+
+export async function streamImageWithGemini(
+  input: AnalyzeImageInput
+): Promise<GeminiOpenStreamResult> {
+  return openGeminiAnalysisStream(input);
+}
+
+export async function analyzeImageWithGemini(
+  input: AnalyzeImageInput
+): Promise<{ text: string; model: string; usedFallback: boolean }> {
+  const opened = await openGeminiAnalysisStream(input);
+  let text = '';
+
+  for await (const chunk of opened.stream) {
+    text += chunk;
+  }
+
+  if (!text.trim()) {
+    throw new Error('Gemini returned no text for this image.');
+  }
+
+  return {
+    text: text.trim(),
+    model: opened.model,
+    usedFallback: opened.usedFallback
+  };
 }

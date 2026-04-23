@@ -13,6 +13,9 @@ const promptTemplateInput = document.getElementById('prompt-template') as HTMLTe
 const statusText = document.getElementById('settings-status-text') as HTMLSpanElement;
 const closeSettingsButton = document.getElementById('close-settings') as HTMLButtonElement;
 const quickActionPresets = document.getElementById('quick-action-presets') as HTMLDivElement;
+const summaryBackend = document.getElementById('summary-backend') as HTMLHeadingElement;
+const summaryShortcut = document.getElementById('summary-shortcut') as HTMLHeadingElement;
+const summaryAction = document.getElementById('summary-action') as HTMLHeadingElement;
 
 let currentQuickActionId: QuickActionId = 'describe';
 
@@ -28,9 +31,22 @@ function renderQuickActionButtons(activeQuickActionId: QuickActionId): void {
       currentQuickActionId = action.id;
       promptTemplateInput.value = action.prompt;
       renderQuickActionButtons(currentQuickActionId);
+      summaryAction.textContent = action.id === 'describe' ? 'AI Overview' : action.label;
     });
     quickActionPresets.appendChild(button);
   });
+}
+
+function summarizeBackend(viewModel: SettingsViewModel): string {
+  if (!viewModel.backendConfigured || !viewModel.backendBaseUrl) {
+    return 'Not configured';
+  }
+
+  try {
+    return new URL(viewModel.backendBaseUrl).hostname;
+  } catch {
+    return 'Configured';
+  }
 }
 
 function renderSettings(viewModel: SettingsViewModel): void {
@@ -49,6 +65,10 @@ function renderSettings(viewModel: SettingsViewModel): void {
     currentQuickActionId === 'describe'
       ? 'AI Overview'
       : getQuickActionById(currentQuickActionId)?.label ?? 'Custom';
+
+  summaryBackend.textContent = summarizeBackend(viewModel);
+  summaryShortcut.textContent = viewModel.settings.shortcut || 'Unset';
+  summaryAction.textContent = quickActionLabel;
 
   statusText.textContent = viewModel.shortcutRegistered
     ? `Ready to capture. ${quickActionLabel} is the current default action.`

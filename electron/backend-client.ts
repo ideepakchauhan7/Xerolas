@@ -26,6 +26,23 @@ interface SessionBootstrapPayload {
   message?: string;
 }
 
+interface StreamMetaPayload {
+  provider?: string;
+  model?: string;
+  usedFallback?: boolean;
+}
+
+interface StreamDeltaPayload {
+  text?: string;
+}
+
+interface StreamCompletePayload {
+  text?: string;
+  provider?: string;
+  model?: string;
+  usedFallback?: boolean;
+}
+
 export interface BackendSession {
   token: string;
   expiresAt: string;
@@ -46,6 +63,11 @@ export interface AnalyzeImageInput {
   appVersion: string;
   platform: string;
   sessionToken: string;
+}
+
+export interface AnalyzeStreamHandlers {
+  onMeta?: (payload: { provider: string; model: string; usedFallback: boolean }) => void;
+  onDelta?: (payload: { chunk: string; text: string }) => void;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -109,6 +131,76 @@ async function requestJson<T>(input: {
   return parsedBody as T;
 }
 
+function buildAnalyzeBody(input: AnalyzeImageInput): FormData {
+  const body = new FormData();
+  body.set('quickActionId', input.quickActionId);
+  body.set('promptTemplate', input.promptTemplate);
+  body.set('appVersion', input.appVersion);
+  body.set('platform', input.platform);
+  body.set('image', new Blob([input.imageBytes], { type: 'image/png' }), 'capture.png');
+  return body;
+}
+
+function buildTrustHeaders(sessionToken: string): Record<string, string> {
+  return {
+    'X-Xerolas-Session': sessionToken,
+    'X-Xerolas-Timestamp': `${Date.now()}`,
+    'X-Xerolas-Nonce': randomUUID()
+  };
+}
+
+function parseSseEvents(chunkBuffer: string): {
+  events: Array<{ event: string; data: string }>;
+  remainder: string;
+} {
+  const normalized = chunkBuffer.replace(/\r\n/g, '\n');
+  const segments = normalized.split('\n\n');
+  const remainder = segments.pop() ?? '';
+  const events = segments
+    .map((segment) => {
+      const lines = segment.split('\n');
+      let event = 'message';
+      const dataLines: string[] = [];
+
+      lines.forEach((line) => {
+        if (line.startsWith('event:')) {
+          event = line.slice(6).trim() || 'message';
+          return;
+        }
+
+        if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5).trimStart());
+        }
+      });
+
+      return {
+        event,
+        data: dataLines.join('\n').trim()
+      };
+    })
+    .filter((entry) => entry.data);
+
+  return { events, remainder };
+}
+
+async function readErrorResponse(response: Response): Promise<never> {
+  const rawBody = await response.text();
+  let parsedBody: Record<string, unknown> = {};
+
+  try {
+    parsedBody = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
+  } catch {
+    parsedBody = {};
+  }
+
+  const message =
+    typeof parsedBody.message === 'string' && parsedBody.message.trim()
+      ? parsedBody.message.trim()
+      : rawBody.trim() || `Gateway request failed with status ${response.status}.`;
+
+  throw new GatewayRequestError(response.status, message);
+}
+
 export async function requestSession(
   input: SessionBootstrapInput
 ): Promise<BackendSession> {
@@ -148,23 +240,12 @@ export async function requestSession(
 export async function analyzeImage(
   input: AnalyzeImageInput
 ): Promise<{ text: string; provider: string; model: string; usedFallback: boolean }> {
-  const body = new FormData();
-  body.set('quickActionId', input.quickActionId);
-  body.set('promptTemplate', input.promptTemplate);
-  body.set('appVersion', input.appVersion);
-  body.set('platform', input.platform);
-  body.set('image', new Blob([input.imageBytes], { type: 'image/png' }), 'capture.png');
-
   const payload = await requestJson<AnalyzeResponsePayload>({
     backendBaseUrl: input.backendBaseUrl,
     method: 'POST',
     pathname: '/api/v1/analyze',
-    body,
-    headers: {
-      'X-Xerolas-Session': input.sessionToken,
-      'X-Xerolas-Timestamp': `${Date.now()}`,
-      'X-Xerolas-Nonce': randomUUID()
-    }
+    body: buildAnalyzeBody(input),
+    headers: buildTrustHeaders(input.sessionToken)
   });
 
   if (typeof payload.text !== 'string' || !payload.text.trim()) {
@@ -182,5 +263,125 @@ export async function analyzeImage(
         ? payload.model.trim()
         : 'unknown',
     usedFallback: Boolean(payload.usedFallback)
+  };
+}
+
+export async function streamAnalyzeImage(
+  input: AnalyzeImageInput,
+  handlers: AnalyzeStreamHandlers = {}
+): Promise<{ text: string; provider: string; model: string; usedFallback: boolean }> {
+  const baseUrl = normalizeBaseUrl(input.backendBaseUrl);
+  const url = new URL(`${baseUrl}/api/v1/analyze/stream`);
+  assertSecureTarget(url);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'text/event-stream',
+      ...buildTrustHeaders(input.sessionToken)
+    },
+    body: buildAnalyzeBody(input)
+  });
+
+  if (!response.ok) {
+    await readErrorResponse(response);
+  }
+
+  if (!response.body) {
+    throw new Error('The backend returned no stream for this capture.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let aggregateText = '';
+  let provider = 'gemini';
+  let model = 'unknown';
+  let usedFallback = false;
+
+  const processEvent = (eventName: string, dataText: string): void => {
+    if (!dataText || dataText === '[DONE]') {
+      return;
+    }
+
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = JSON.parse(dataText) as Record<string, unknown>;
+    } catch {
+      return;
+    }
+
+    if (eventName === 'meta') {
+      const meta = payload as StreamMetaPayload;
+      provider = typeof meta.provider === 'string' && meta.provider.trim() ? meta.provider.trim() : provider;
+      model = typeof meta.model === 'string' && meta.model.trim() ? meta.model.trim() : model;
+      usedFallback = Boolean(meta.usedFallback);
+      handlers.onMeta?.({ provider, model, usedFallback });
+      return;
+    }
+
+    if (eventName === 'delta') {
+      const delta = payload as StreamDeltaPayload;
+      const chunk = typeof delta.text === 'string' ? delta.text : '';
+      if (!chunk) {
+        return;
+      }
+      aggregateText += chunk;
+      handlers.onDelta?.({ chunk, text: aggregateText });
+      return;
+    }
+
+    if (eventName === 'complete') {
+      const complete = payload as StreamCompletePayload;
+      aggregateText =
+        typeof complete.text === 'string' && complete.text.trim() ? complete.text : aggregateText;
+      provider =
+        typeof complete.provider === 'string' && complete.provider.trim() ? complete.provider.trim() : provider;
+      model = typeof complete.model === 'string' && complete.model.trim() ? complete.model.trim() : model;
+      usedFallback = Boolean(complete.usedFallback);
+      return;
+    }
+
+    if (eventName === 'error') {
+      const message =
+        typeof payload.message === 'string' && payload.message.trim()
+          ? payload.message.trim()
+          : 'The streamed Gemini request failed.';
+      throw new Error(message);
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    const parsed = parseSseEvents(buffer);
+    buffer = parsed.remainder;
+
+    for (const event of parsed.events) {
+      processEvent(event.event, event.data);
+    }
+
+    if (done) {
+      break;
+    }
+  }
+
+  const trailing = buffer.trim();
+  if (trailing) {
+    const parsed = parseSseEvents(`${trailing}\n\n`);
+    parsed.events.forEach((event) => {
+      processEvent(event.event, event.data);
+    });
+  }
+
+  if (!aggregateText.trim()) {
+    throw new Error('The backend returned no text for this capture.');
+  }
+
+  return {
+    text: aggregateText.trim(),
+    provider,
+    model,
+    usedFallback
   };
 }

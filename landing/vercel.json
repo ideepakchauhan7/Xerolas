@@ -1,7 +1,4 @@
 {
-  "framework": null,
-  "cleanUrls": true,
-  "buildCommand": "",
-  "installCommand": "",
-  "outputDirectory": "."
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs"
 }

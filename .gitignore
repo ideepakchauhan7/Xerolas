@@ -15,3 +15,6 @@ backend/config/server.local.json
 .dev.vars
 .dev.vars.*
 .vercel
+
+.next
+Capacity - Turn that idea you had in mind into a website_files/

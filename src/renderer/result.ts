@@ -1,44 +1,142 @@
 import {
   QUICK_ACTIONS,
-  getQuickActionLabel,
   type AnalysisResult,
-  type HistoryEntry,
-  type HistoryViewModel,
-  type QuickActionId
+  type QuickActionId,
+  type ResultStreamState
 } from '../shared/types';
 
 const resultText = document.getElementById('result-text') as HTMLDivElement;
-const resultSubtitle = document.getElementById('result-subtitle') as HTMLParagraphElement;
 const quickActions = document.getElementById('quick-actions') as HTMLDivElement;
-const historyPanel = document.getElementById('history-panel') as HTMLDivElement;
-const historyList = document.getElementById('history-list') as HTMLDivElement;
-const captureAgainButton = document.getElementById('capture-again') as HTMLButtonElement;
-const copyResultButton = document.getElementById('copy-result') as HTMLButtonElement;
-const shareResultButton = document.getElementById('share-result') as HTMLButtonElement;
-const toggleHistoryButton = document.getElementById('toggle-history') as HTMLButtonElement;
-const minimizeResultButton = document.getElementById('minimize-result') as HTMLButtonElement;
-const collapseResultButton = document.getElementById('collapse-result') as HTMLButtonElement;
-const clearHistoryButton = document.getElementById('clear-history') as HTMLButtonElement;
 
 let currentResult: AnalysisResult | null = null;
-let currentHistory: HistoryViewModel = { items: [], limit: 10 };
-let historyOpen = false;
+let currentStream: ResultStreamState | null = null;
+let typingTimer: number | null = null;
+let displayedStreamText = '';
+let targetStreamText = '';
 
-function formatTime(isoDate: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(isoDate));
+const VISIBLE_ACTIONS: QuickActionId[] = ['describe', 'code', 'translate', 'summarize', 'ask'];
+
+const ACTION_ICONS: Record<QuickActionId, string> = {
+  describe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.85 5.15L19 10l-5.15 1.85L12 17l-1.85-5.15L5 10l5.15-1.85L12 3Z"/></svg>',
+  extract: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12"/><path d="M6 12h12"/><path d="M6 17h8"/></svg>',
+  code: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18-6-6 6-6"/><path d="m15 6 6 6-6 6"/></svg>',
+  translate: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h8"/><path d="M8 3v2"/><path d="M6 13l4-8 4 8"/><path d="M5 11h6"/><path d="M14 15h6"/><path d="M17 13v8"/><path d="m14 21 3-3 3 3"/></svg>',
+  summarize: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h12"/><path d="M4 17h8"/></svg>',
+  ask: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 3-3 3"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  custom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>'
+};
+
+function getActionDisplayLabel(actionId: QuickActionId | null): string {
+  if (!actionId || actionId === 'describe') {
+    return 'AI Overview';
+  }
+
+  return QUICK_ACTIONS.find((action) => action.id === actionId)?.label ?? 'Custom';
+}
+
+function stripInlineMarkdown(input: string): string {
+  return input
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^>\s?/, '')
+    .trim();
+}
+
+function isHeadingLine(line: string): boolean {
+  return /^#{1,6}\s+/.test(line) || (/^[A-Za-z][A-Za-z0-9\s/&()'-]{1,60}:$/.test(line) && line.length < 64);
+}
+
+function isNumberedListLine(line: string): boolean {
+  return /^\d+\.\s+/.test(line);
+}
+
+function isBulletListLine(line: string): boolean {
+  return /^[-*•]\s+/.test(line);
+}
+
+function appendParagraph(container: HTMLElement, text: string): void {
+  const paragraph = document.createElement('p');
+  paragraph.textContent = stripInlineMarkdown(text);
+  container.appendChild(paragraph);
+}
+
+function appendHeading(container: HTMLElement, text: string): void {
+  const heading = document.createElement('h3');
+  heading.textContent = stripInlineMarkdown(text.replace(/^#{1,6}\s+/, '').replace(/:$/, ''));
+  container.appendChild(heading);
+}
+
+function appendList(container: HTMLElement, items: string[], ordered: boolean): void {
+  const list = document.createElement(ordered ? 'ol' : 'ul');
+  items.forEach((item) => {
+    const listItem = document.createElement('li');
+    listItem.textContent = stripInlineMarkdown(item);
+    list.appendChild(listItem);
+  });
+  container.appendChild(list);
+}
+
+function stopTypewriter(): void {
+  if (typingTimer !== null) {
+    window.clearTimeout(typingTimer);
+    typingTimer = null;
+  }
+}
+
+function renderStreamBody(): void {
+  resultText.innerHTML = '';
+  resultText.style.whiteSpace = 'pre-wrap';
+  resultText.classList.add('is-streaming');
+
+  const streamCopy = document.createElement('p');
+  const suffix = currentStream && currentStream.status !== 'error' ? '▍' : '';
+  streamCopy.textContent = `${displayedStreamText}${suffix}`;
+  resultText.appendChild(streamCopy);
+}
+
+function tickTypewriter(): void {
+  typingTimer = null;
+  if (!currentStream) {
+    return;
+  }
+
+  const remaining = targetStreamText.length - displayedStreamText.length;
+  if (remaining > 0) {
+    const step = Math.max(1, Math.min(8, Math.ceil(remaining / 18)));
+    displayedStreamText = targetStreamText.slice(0, displayedStreamText.length + step);
+    renderStreamBody();
+    typingTimer = window.setTimeout(tickTypewriter, 16);
+    return;
+  }
+
+  renderStreamBody();
+}
+
+function scheduleTypewriter(): void {
+  if (typingTimer !== null) {
+    return;
+  }
+
+  typingTimer = window.setTimeout(tickTypewriter, 16);
 }
 
 function renderQuickActions(activeQuickActionId: QuickActionId | null): void {
   quickActions.innerHTML = '';
 
-  QUICK_ACTIONS.forEach((action) => {
+  VISIBLE_ACTIONS.forEach((actionId) => {
+    const action = QUICK_ACTIONS.find((entry) => entry.id === actionId);
+    if (!action) {
+      return;
+    }
+
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `preset-chip${action.id === activeQuickActionId ? ' is-active' : ''}`;
-    button.textContent = action.id === 'describe' ? 'AI Overview' : action.label;
+    button.className = `result-mini-action${action.id === activeQuickActionId ? ' is-active' : ''}`;
+    button.setAttribute('aria-pressed', action.id === activeQuickActionId ? 'true' : 'false');
+    button.setAttribute('aria-label', getActionDisplayLabel(action.id));
+    button.title = getActionDisplayLabel(action.id);
+    button.innerHTML = ACTION_ICONS[action.id];
+    button.disabled = Boolean(currentStream);
     button.addEventListener('click', async () => {
       if (currentResult) {
         await window.desktopAssistant.rerunResult(action.id);
@@ -51,120 +149,144 @@ function renderQuickActions(activeQuickActionId: QuickActionId | null): void {
   });
 }
 
-function renderHistoryItem(entry: HistoryEntry): HTMLButtonElement {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'history-item';
-  button.addEventListener('click', async () => {
-    await window.desktopAssistant.selectHistoryEntry(entry.id);
-  });
+function renderStructuredText(text: string): void {
+  stopTypewriter();
+  displayedStreamText = '';
+  targetStreamText = '';
+  resultText.innerHTML = '';
+  resultText.style.whiteSpace = '';
+  resultText.classList.remove('is-streaming');
+  const lines = text.split(/\r?\n/);
+  let index = 0;
 
-  const image = document.createElement('img');
-  image.src = entry.imageDataUrl;
-  image.alt = 'Capture preview';
-  button.appendChild(image);
+  while (index < lines.length) {
+    const current = lines[index]?.trim() ?? '';
 
-  const copy = document.createElement('div');
-  copy.className = 'history-item-copy';
+    if (!current) {
+      index += 1;
+      continue;
+    }
 
-  const meta = document.createElement('div');
-  meta.className = 'history-item-meta';
+    if (isHeadingLine(current)) {
+      appendHeading(resultText, current);
+      index += 1;
+      continue;
+    }
 
-  const title = document.createElement('span');
-  title.className = 'history-item-title';
-  title.textContent = entry.quickActionId === 'describe' ? 'AI Overview' : getQuickActionLabel(entry.quickActionId);
-  meta.appendChild(title);
+    if (isNumberedListLine(current)) {
+      const items: string[] = [];
+      while (index < lines.length && isNumberedListLine(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s+/, ''));
+        index += 1;
+      }
+      appendList(resultText, items, true);
+      continue;
+    }
 
-  const time = document.createElement('span');
-  time.textContent = formatTime(entry.createdAt);
-  meta.appendChild(time);
+    if (isBulletListLine(current)) {
+      const items: string[] = [];
+      while (index < lines.length && isBulletListLine(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^[-*•]\s+/, ''));
+        index += 1;
+      }
+      appendList(resultText, items, false);
+      continue;
+    }
 
-  const preview = document.createElement('div');
-  preview.className = 'history-item-preview';
-  preview.textContent = entry.text.slice(0, 140);
+    const paragraphLines = [current];
+    index += 1;
 
-  copy.append(meta, preview);
-  button.appendChild(copy);
+    while (index < lines.length) {
+      const next = lines[index].trim();
+      if (!next) {
+        index += 1;
+        break;
+      }
 
-  return button;
-}
+      if (isHeadingLine(next) || isNumberedListLine(next) || isBulletListLine(next)) {
+        break;
+      }
 
-function renderHistory(history: HistoryViewModel): void {
-  currentHistory = history;
-  historyList.innerHTML = '';
+      paragraphLines.push(next);
+      index += 1;
+    }
 
-  if (!history.items.length) {
-    const empty = document.createElement('div');
-    empty.className = 'history-empty';
-    empty.textContent = 'No captures yet.';
-    historyList.appendChild(empty);
-    return;
+    appendParagraph(resultText, paragraphLines.join(' '));
   }
 
-  history.items.forEach((entry) => {
-    historyList.appendChild(renderHistoryItem(entry));
-  });
+  if (!resultText.childElementCount) {
+    appendParagraph(resultText, text);
+  }
 }
 
 function renderResult(result: AnalysisResult): void {
   currentResult = result;
-  resultSubtitle.textContent =
-    result.quickActionId === 'describe'
-      ? 'AI Overview'
-      : `${getQuickActionLabel(result.quickActionId)} for this capture`;
-  resultText.textContent = result.text;
+  currentStream = null;
   renderQuickActions(result.quickActionId);
+  renderStructuredText(result.text);
 }
 
-function setHistoryOpen(nextOpen: boolean): void {
-  historyOpen = nextOpen;
-  historyPanel.classList.toggle('is-open', historyOpen);
+function renderStreamState(state: ResultStreamState): void {
+  currentStream = state;
+  renderQuickActions(state.quickActionId);
+  targetStreamText = state.text;
+  if (displayedStreamText.length > targetStreamText.length) {
+    displayedStreamText = targetStreamText;
+  }
+  renderStreamBody();
+  scheduleTypewriter();
 }
 
-captureAgainButton.addEventListener('click', async () => {
-  await window.desktopAssistant.requestCapture(currentResult?.quickActionId);
+function renderEmptyState(): void {
+  currentResult = null;
+  currentStream = null;
+  stopTypewriter();
+  displayedStreamText = '';
+  targetStreamText = '';
+  resultText.innerHTML = '';
+  resultText.style.whiteSpace = '';
+  resultText.classList.remove('is-streaming');
+  appendParagraph(resultText, 'Capture any part of your screen and Xerolas will show the answer here.');
+  renderQuickActions('describe');
+}
+
+window.addEventListener('keydown', async (event) => {
+  if (event.key === 'Escape') {
+    await window.desktopAssistant.collapseResult();
+  }
 });
 
-copyResultButton.addEventListener('click', async () => {
-  if (!currentResult) {
+window.desktopAssistant.onResult((result) => {
+  currentResult = result;
+  if (!currentStream) {
+    renderResult(result);
+  }
+});
+window.desktopAssistant.onResultStream((streamState) => {
+  if (streamState) {
+    renderStreamState(streamState);
     return;
   }
 
-  await navigator.clipboard.writeText(currentResult.text);
+  currentStream = null;
+  if (currentResult) {
+    renderResult(currentResult);
+    return;
+  }
+
+  renderEmptyState();
 });
 
-shareResultButton.addEventListener('click', async () => {
-  await window.desktopAssistant.shareResult();
-});
+Promise.all([window.desktopAssistant.getResult(), window.desktopAssistant.getResultStream()])
+  .then(([result, streamState]) => {
+    currentResult = result;
 
-toggleHistoryButton.addEventListener('click', () => {
-  setHistoryOpen(!historyOpen);
-});
-
-minimizeResultButton.addEventListener('click', async () => {
-  await window.desktopAssistant.minimizeResult();
-});
-
-collapseResultButton.addEventListener('click', async () => {
-  await window.desktopAssistant.collapseResult();
-});
-
-clearHistoryButton.addEventListener('click', async () => {
-  await window.desktopAssistant.clearHistory();
-});
-
-window.desktopAssistant.onResult(renderResult);
-window.desktopAssistant.onHistory(renderHistory);
-
-Promise.all([window.desktopAssistant.getResult(), window.desktopAssistant.getHistory()])
-  .then(([result, history]) => {
-    if (result) {
+    if (streamState) {
+      renderStreamState(streamState);
+    } else if (result) {
       renderResult(result);
     } else {
-      resultText.textContent = 'Capture any part of your screen and Xerolas will analyze it here.';
-      renderQuickActions('describe');
+      renderEmptyState();
     }
-
-    renderHistory(history);
   })
   .catch(console.error);

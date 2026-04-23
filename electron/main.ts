@@ -28,6 +28,7 @@ import {
   type OverlayPayload,
   type QuickActionId,
   type Rect,
+  type ResultStreamState,
   resolveQuickActionId,
   type SaveSettingsInput,
   type SaveSettingsResult,
@@ -38,8 +39,8 @@ import {
 import {
   type BackendSession,
   GatewayRequestError,
-  analyzeImage,
-  requestSession
+  requestSession,
+  streamAnalyzeImage
 } from './backend-client';
 import { loadAppConfig } from './app-config';
 import { assertRuntimeSecurity, verifyPackagedIntegrity } from './runtime-security';
@@ -64,10 +65,10 @@ if (!singleInstanceLock) {
 const PRELOAD_PATH = path.join(__dirname, 'preload.js');
 const RENDERER_DIST = path.join(__dirname, '..', '..', 'dist');
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
-const SHOW_FLOATING_WIDGET = true;
-const WIDGET_SIZE = { width: 228, height: 84 };
-const RESULT_MIN_SIZE = { width: 360, height: 520 };
-const SETTINGS_WINDOW_SIZE = { width: 860, height: 760 };
+const SHOW_FLOATING_WIDGET = false;
+const WIDGET_SIZE = { width: 164, height: 84 };
+const RESULT_MIN_SIZE = { width: 440, height: 520 }; // keep landing-style inspector from clipping
+const SETTINGS_WINDOW_SIZE = { width: 940, height: 820 };
 const WINDOW_PREWARM_DELAY_MS = 180;
 const LEGACY_DEFAULT_SHORTCUTS = new Set([
   'CommandOrControl+Shift+Space',
@@ -96,6 +97,7 @@ let settings: AppSettings = {
 };
 let historyItems: HistoryEntry[] = [];
 let latestAnalysis: AnalysisResult | null = null;
+let currentResultStream: ResultStreamState | null = null;
 let overlayPayload: OverlayPayload | null = null;
 let shortcutRegistered = false;
 let captureInProgress = false;
@@ -114,6 +116,8 @@ const widgetWindows = new Map<string, BrowserWindow>();
 const appPerfSession = createPerfSession('app');
 let currentCapturePerfSession: PerfSession | null = null;
 let widgetShownPerfLogged = false;
+let resultWindowAutoResizeEnabled = false;
+let settingResultWindowBounds = false;
 const SESSION_REFRESH_BUFFER_MS = 60_000;
 
 function toRect(input: Electron.Rectangle): Rect {
@@ -357,9 +361,9 @@ function buildRuntimeState(): AppRuntimeState {
     captureReady: !getBackendConfigurationIssue(),
     accessMessage: getAccessMessage(),
     resultVisible: Boolean(appWindows.result?.isVisible()),
-    hasResult: Boolean(latestAnalysis),
+    hasResult: Boolean(latestAnalysis || currentResultStream),
     historyCount: historyItems.length,
-    lastPreview: latestAnalysis?.text.slice(0, 120) ?? '',
+    lastPreview: currentResultStream?.text.slice(0, 120) ?? latestAnalysis?.text.slice(0, 120) ?? '',
     lastError
   };
 }
@@ -395,6 +399,22 @@ function broadcastHistory(): void {
     .forEach((window) => window.webContents.send('history:update', historyViewModel));
 
   refreshTrayMenu();
+}
+
+function getActiveResultSelection(): SelectionPayload | null {
+  return currentResultStream?.selection ?? latestAnalysis?.selection ?? null;
+}
+
+function broadcastResultStream(): void {
+  [appWindows.result]
+    .filter((window): window is BrowserWindow => Boolean(window && !window.isDestroyed()))
+    .forEach((window) => window.webContents.send('result:stream', currentResultStream));
+}
+
+function pushResultStreamState(nextState: ResultStreamState | null): void {
+  currentResultStream = nextState;
+  broadcastResultStream();
+  broadcastState();
 }
 
 function clearError(): void {
@@ -683,7 +703,7 @@ function hideWidgets(): void {
   });
 }
 
-function computeResultBounds(selection: Rect): Rect {
+function computeResultBounds(selection: Rect, preferredSize?: Size): Rect {
   const display = screen.getDisplayMatching({
     x: selection.x,
     y: selection.y,
@@ -693,7 +713,7 @@ function computeResultBounds(selection: Rect): Rect {
 
   const workArea = display.workArea;
   const margin = 16;
-  const size = clampResultWindowSize(display, settings.resultWindowSize);
+  const size = clampResultWindowSize(display, preferredSize ?? settings.resultWindowSize);
   const rightCandidate = selection.x + selection.width + margin;
   const leftCandidate = selection.x - size.width - margin;
   const workAreaRight = workArea.x + workArea.width;
@@ -715,15 +735,64 @@ function computeResultBounds(selection: Rect): Rect {
   };
 }
 
+function estimateAutoResultWindowSize(selection: SelectionPayload, text: string): Size {
+  const display = screen.getDisplayMatching({
+    x: selection.absoluteBounds.x,
+    y: selection.absoluteBounds.y,
+    width: Math.max(selection.absoluteBounds.width, 1),
+    height: Math.max(selection.absoluteBounds.height, 1)
+  });
+  const visibleLength = text.replace(/\s+/g, ' ').trim().length;
+  const estimatedLines = Math.max(8, Math.ceil(Math.max(visibleLength, 120) / 40));
+  const width = Math.max(440, Math.min(620, Math.round(selection.absoluteBounds.width * 0.48) + 220));
+  const height = Math.max(520, Math.min(Math.round(display.workArea.height * 0.84), 400 + estimatedLines * 20));
+
+  return clampResultWindowSize(display, { width, height });
+}
+
+function maybeAutoResizeResultWindow(text: string, selection: SelectionPayload): void {
+  if (!resultWindowAutoResizeEnabled || !appWindows.result || appWindows.result.isDestroyed()) {
+    return;
+  }
+
+  const resultWindow = appWindows.result;
+  if (resultWindow.isMinimized()) {
+    return;
+  }
+
+  const nextSize = estimateAutoResultWindowSize(selection, text);
+  const nextBounds = computeResultBounds(selection.absoluteBounds, nextSize);
+  const currentBounds = resultWindow.getBounds();
+  if (
+    currentBounds.x === nextBounds.x &&
+    currentBounds.y === nextBounds.y &&
+    currentBounds.width === nextBounds.width &&
+    currentBounds.height === nextBounds.height
+  ) {
+    return;
+  }
+
+  settingResultWindowBounds = true;
+  try {
+    resultWindow.setBounds(nextBounds, false);
+  } finally {
+    settingResultWindowBounds = false;
+  }
+}
+
 async function ensureResultWindow(): Promise<BrowserWindow> {
   if (appWindows.result && !appWindows.result.isDestroyed()) {
     return appWindows.result;
   }
 
   const activeDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const initialSelection = getActiveResultSelection();
   const initialSize = clampResultWindowSize(activeDisplay, settings.resultWindowSize);
-  const initialBounds = latestAnalysis
-    ? computeResultBounds(latestAnalysis.selection.absoluteBounds)
+  const initialBounds = initialSelection
+    ? computeResultBounds(
+        initialSelection.absoluteBounds,
+        currentResultStream ? estimateAutoResultWindowSize(initialSelection, currentResultStream.text) : undefined
+      )
     : {
         x: activeDisplay.workArea.x + activeDisplay.workArea.width - initialSize.width - 16,
         y: activeDisplay.workArea.y + 16,
@@ -780,6 +849,11 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
       return;
     }
 
+    if (settingResultWindowBounds) {
+      return;
+    }
+
+    resultWindowAutoResizeEnabled = false;
     persistResultWindowSize({
       width: resultWindow.getBounds().width,
       height: resultWindow.getBounds().height
@@ -791,8 +865,14 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
   return resultWindow;
 }
 
-async function showResultWindow(options: { reposition?: boolean } = {}): Promise<void> {
-  if (!latestAnalysis) {
+async function showResultWindow(options: {
+  reposition?: boolean;
+  selection?: SelectionPayload;
+  preferredSize?: Size;
+  clearStream?: boolean;
+} = {}): Promise<void> {
+  const selection = options.selection ?? getActiveResultSelection();
+  if (!selection) {
     return;
   }
 
@@ -801,11 +881,19 @@ async function showResultWindow(options: { reposition?: boolean } = {}): Promise
     resultWindow.restore();
   }
   if (options.reposition) {
-    const bounds = computeResultBounds(latestAnalysis.selection.absoluteBounds);
-    resultWindow.setBounds(bounds, false);
+    const bounds = computeResultBounds(selection.absoluteBounds, options.preferredSize);
+    settingResultWindowBounds = true;
+    try {
+      resultWindow.setBounds(bounds, false);
+    } finally {
+      settingResultWindowBounds = false;
+    }
   }
-  resultWindow.webContents.send('result:update', latestAnalysis);
+  if (latestAnalysis) {
+    resultWindow.webContents.send('result:update', latestAnalysis);
+  }
   resultWindow.webContents.send('history:update', buildHistoryViewModel());
+  resultWindow.webContents.send('result:stream', options.clearStream ? null : currentResultStream);
   resultWindow.show();
   resultWindow.focus();
   markCapturePerf('result-window-shown', {
@@ -830,7 +918,7 @@ async function minimizeResultWindow(): Promise<void> {
 }
 
 async function toggleResultWindow(): Promise<void> {
-  if (!latestAnalysis) {
+  if (!latestAnalysis && !currentResultStream) {
     return;
   }
 
@@ -856,8 +944,8 @@ async function ensureSettingsWindow(): Promise<BrowserWindow> {
     frame: false,
     transparent: true,
     resizable: true,
-    minWidth: 560,
-    minHeight: 700,
+    minWidth: 640,
+    minHeight: 760,
     hasShadow: false,
     fullscreenable: false,
     skipTaskbar: true,
@@ -1146,8 +1234,9 @@ async function showHistoryEntry(id: string): Promise<void> {
   }
 
   latestAnalysis = entry;
+  pushResultStreamState(null);
   clearError();
-  await showResultWindow();
+  await showResultWindow({ clearStream: true });
 }
 
 async function showMostRecentHistoryResult(): Promise<void> {
@@ -1156,8 +1245,9 @@ async function showMostRecentHistoryResult(): Promise<void> {
   }
 
   latestAnalysis = historyItems[0];
+  pushResultStreamState(null);
   clearError();
-  await showResultWindow();
+  await showResultWindow({ clearStream: true });
 }
 
 async function clearHistoryEntries(): Promise<void> {
@@ -1212,38 +1302,78 @@ async function analyzeExistingImage(
   }
 
   const promptTemplate = resolvePromptTemplateForQuickAction(quickActionId, fallbackPromptTemplate);
+  const initialStreamState: ResultStreamState = {
+    status: 'loading',
+    quickActionId,
+    text: '',
+    message: 'Xerolas is analyzing this capture…',
+    selection
+  };
+  resultWindowAutoResizeEnabled = Boolean(options.repositionResult);
+  pushResultStreamState(initialStreamState);
+  await showResultWindow({
+    reposition: options.repositionResult,
+    selection,
+    preferredSize: estimateAutoResultWindowSize(selection, ''),
+    clearStream: false
+  });
+
   let session = await fetchBackendSession();
   markCapturePerf('backend-request-start', {
     quickActionId,
     bytes: imageBytes.byteLength
   });
-  let analysis: Awaited<ReturnType<typeof analyzeImage>>;
-  try {
-    analysis = await analyzeImage({
-      backendBaseUrl,
-      quickActionId,
-      promptTemplate,
-      imageBytes,
-      appVersion: app.getVersion(),
-      platform: process.platform,
-      sessionToken: session.token
-    });
-  } catch (error) {
-    if (error instanceof GatewayRequestError && error.status === 401) {
-      session = await fetchBackendSession(true);
-      analysis = await analyzeImage({
+
+  const startStream = async (sessionToken: string) =>
+    streamAnalyzeImage(
+      {
         backendBaseUrl,
         quickActionId,
         promptTemplate,
         imageBytes,
         appVersion: app.getVersion(),
         platform: process.platform,
-        sessionToken: session.token
-      });
+        sessionToken
+      },
+      {
+        onMeta: ({ model, usedFallback }) => {
+          markCapturePerf('backend-stream-meta', {
+            model,
+            usedFallback
+          });
+        },
+        onDelta: ({ text }) => {
+          pushResultStreamState({
+            status: 'streaming',
+            quickActionId,
+            text,
+            message: null,
+            selection
+          });
+          maybeAutoResizeResultWindow(text, selection);
+        }
+      }
+    );
+
+  let analysis: Awaited<ReturnType<typeof streamAnalyzeImage>>;
+  try {
+    analysis = await startStream(session.token);
+  } catch (error) {
+    if (error instanceof GatewayRequestError && error.status === 401) {
+      session = await fetchBackendSession(true);
+      analysis = await startStream(session.token);
     } else {
+      pushResultStreamState({
+        status: 'error',
+        quickActionId,
+        text: '',
+        message: getErrorMessage(error),
+        selection
+      });
       throw error;
     }
   }
+
   markCapturePerf('backend-request-complete', {
     model: analysis.model,
     usedFallback: analysis.usedFallback
@@ -1264,7 +1394,11 @@ async function analyzeExistingImage(
 
   appendHistoryEntry(latestAnalysis);
   clearError();
-  await showResultWindow({ reposition: options.repositionResult });
+  currentResultStream = null;
+  resultWindowAutoResizeEnabled = false;
+  await showResultWindow({ selection, clearStream: true });
+  broadcastResultStream();
+  broadcastState();
 }
 
 async function finalizeCapture(selection: SelectionPayload): Promise<void> {
@@ -1281,10 +1415,6 @@ async function finalizeCapture(selection: SelectionPayload): Promise<void> {
     height: selection.absoluteBounds.height,
     bytes: imageBytes.byteLength
   });
-  hideOverlayWindow();
-
-  showWidgets();
-  showSettingsWindowIfNeeded();
 
   const backendConfigurationIssue = getBackendConfigurationIssue();
   if (backendConfigurationIssue) {
@@ -1374,7 +1504,7 @@ async function startCaptureFlow(nextQuickActionId?: QuickActionId): Promise<void
   hideWidgets();
   await hideResultWindow();
   hideSettingsWindow();
-  broadcastState();
+  pushResultStreamState(null);
 
   try {
     overlayPayload = await buildOverlayPayload();
@@ -1496,6 +1626,7 @@ function installIpcHandlers(): void {
     await rerunLatestAnalysis(quickActionId);
   });
   ipcMain.handle('result:get', () => latestAnalysis);
+  ipcMain.handle('result:stream:get', () => currentResultStream);
   ipcMain.handle('history:get', () => buildHistoryViewModel());
   ipcMain.handle('history:select', async (_event, id: string) => {
     await showHistoryEntry(id);
@@ -1538,7 +1669,7 @@ function installIpcHandlers(): void {
 
 app.on('second-instance', () => {
   void syncWidgetWindows();
-  if (latestAnalysis) {
+  if (latestAnalysis || currentResultStream) {
     void showResultWindow();
   }
 });
@@ -1607,6 +1738,13 @@ app.whenReady().then(async () => {
     ? DEFAULT_SETTINGS.promptTemplate
     : rawInitialPromptTemplate;
 
+  const migratedResultWindowSize = loadedSettings.resultWindowSize
+    ? {
+        width: Math.max(loadedSettings.resultWindowSize.width, DEFAULT_SETTINGS.resultWindowSize.width),
+        height: Math.max(loadedSettings.resultWindowSize.height, DEFAULT_SETTINGS.resultWindowSize.height)
+      }
+    : DEFAULT_SETTINGS.resultWindowSize;
+
   settings = {
     ...DEFAULT_SETTINGS,
     ...appManagedDefaults,
@@ -1615,14 +1753,16 @@ app.whenReady().then(async () => {
     promptTemplate: initialPromptTemplate,
     shortcut,
     widgetPositions: loadedSettings.widgetPositions,
-    resultWindowSize: loadedSettings.resultWindowSize ?? DEFAULT_SETTINGS.resultWindowSize
+    resultWindowSize: migratedResultWindowSize
   };
 
   if (
     loadedSettings.shortcut !== undefined && loadedSettings.shortcut !== shortcut ||
     loadedSettings.quickActionId !== undefined && loadedSettings.quickActionId !== quickActionId ||
     loadedSettings.promptTemplate !== undefined && loadedSettings.promptTemplate !== initialPromptTemplate ||
-    !loadedSettings.resultWindowSize
+    !loadedSettings.resultWindowSize ||
+    loadedSettings.resultWindowSize.width < DEFAULT_SETTINGS.resultWindowSize.width ||
+    loadedSettings.resultWindowSize.height < DEFAULT_SETTINGS.resultWindowSize.height
   ) {
     persistSettings(settings);
   }
