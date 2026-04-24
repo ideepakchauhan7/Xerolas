@@ -66,6 +66,8 @@ const PRELOAD_PATH = path.join(__dirname, 'preload.js');
 const RENDERER_DIST = path.join(__dirname, '..', '..', 'dist');
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 const SHOW_FLOATING_WIDGET = false;
+const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
+const SHOULD_PREWARM_OVERLAY_WINDOW = process.platform !== 'linux';
 const WIDGET_SIZE = { width: 164, height: 84 };
 const RESULT_MIN_SIZE = { width: 440, height: 520 }; // keep landing-style inspector from clipping
 const SETTINGS_WINDOW_SIZE = { width: 940, height: 820 };
@@ -588,6 +590,7 @@ async function createWidgetWindow(display: Electron.Display): Promise<BrowserWin
     ...bounds,
     frame: false,
     transparent: true,
+    backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
     resizable: false,
     hasShadow: false,
     fullscreenable: false,
@@ -807,6 +810,7 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
     height: initialBounds.height,
     frame: false,
     transparent: true,
+    backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
     resizable: true,
     hasShadow: false,
     fullscreenable: false,
@@ -943,6 +947,7 @@ async function ensureSettingsWindow(): Promise<BrowserWindow> {
     height: settingsBounds.height,
     frame: false,
     transparent: true,
+    backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
     resizable: true,
     minWidth: 640,
     minHeight: 760,
@@ -1113,6 +1118,7 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
     height: display.bounds.height,
     frame: false,
     transparent: true,
+    backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
     resizable: false,
     hasShadow: false,
     fullscreenable: false,
@@ -1124,6 +1130,7 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
     maximizable: false,
     movable: false,
     show: false,
+    paintWhenInitiallyHidden: false,
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -1523,8 +1530,16 @@ async function startCaptureFlow(nextQuickActionId?: QuickActionId): Promise<void
 }
 
 async function prewarmSecondaryWindows(): Promise<void> {
-  markAppPerf('window-prewarm-start');
-  await Promise.all([ensureOverlayWindow(), ensureResultWindow(), ensureSettingsWindow()]);
+  markAppPerf('window-prewarm-start', {
+    overlayPrewarmed: SHOULD_PREWARM_OVERLAY_WINDOW
+  });
+
+  const prewarmTasks: Array<Promise<BrowserWindow>> = [ensureResultWindow(), ensureSettingsWindow()];
+  if (SHOULD_PREWARM_OVERLAY_WINDOW) {
+    prewarmTasks.push(ensureOverlayWindow());
+  }
+
+  await Promise.all(prewarmTasks);
   markAppPerf('window-prewarm-complete');
 }
 
