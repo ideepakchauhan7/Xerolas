@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: path.resolve(__dirname, 'src/renderer'),
+  base: './',
   publicDir: false,
   server: {
     host: '127.0.0.1',
