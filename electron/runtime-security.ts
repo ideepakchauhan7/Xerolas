@@ -12,9 +12,37 @@ interface IntegrityManifest {
   files?: IntegrityFileRecord[];
 }
 
+type FileSystemLike = Pick<typeof fs, 'existsSync' | 'readFileSync'>;
+
+let originalFsModule: FileSystemLike | null | undefined;
+
+function requiresRawFilesystem(filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  return normalizedPath.endsWith('.asar') || normalizedPath.includes('.asar/');
+}
+
+function getIntegrityFilesystem(filePath: string): FileSystemLike {
+  if (!requiresRawFilesystem(filePath)) {
+    return fs;
+  }
+
+  if (originalFsModule !== undefined) {
+    return originalFsModule ?? fs;
+  }
+
+  try {
+    originalFsModule = require('original-fs') as FileSystemLike;
+  } catch {
+    originalFsModule = null;
+  }
+
+  return originalFsModule ?? fs;
+}
+
 function sha256File(filePath: string): string {
+  const fileSystem = getIntegrityFilesystem(filePath);
   const hash = createHash('sha256');
-  hash.update(fs.readFileSync(filePath));
+  hash.update(fileSystem.readFileSync(filePath));
   return hash.digest('hex');
 }
 
@@ -148,7 +176,8 @@ export function verifyPackagedIntegrity(resourcesPath: string): void {
     }
 
     const absolutePath = path.join(resourcesPath, record.path);
-    if (!fs.existsSync(absolutePath)) {
+    const fileSystem = getIntegrityFilesystem(absolutePath);
+    if (!fileSystem.existsSync(absolutePath)) {
       throw new Error(`Integrity check failed. Missing resource: ${record.path}`);
     }
 
