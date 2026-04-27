@@ -70,7 +70,7 @@ const SHOW_FLOATING_WIDGET = false;
 const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
 const SHOULD_PREWARM_OVERLAY_WINDOW = process.platform !== 'linux';
 const WIDGET_SIZE = { width: 164, height: 84 };
-const RESULT_MIN_SIZE = { width: 440, height: 520 }; // keep landing-style inspector from clipping
+const RESULT_MIN_SIZE = { width: 380, height: 320 }; // keep the answer compact by default while still large enough to read
 const SETTINGS_WINDOW_SIZE = { width: 940, height: 820 };
 const WINDOW_PREWARM_DELAY_MS = 180;
 const LEGACY_DEFAULT_SHORTCUTS = new Set([
@@ -784,9 +784,9 @@ function estimateAutoResultWindowSize(selection: SelectionPayload, text: string)
     height: Math.max(selection.absoluteBounds.height, 1)
   });
   const visibleLength = text.replace(/\s+/g, ' ').trim().length;
-  const estimatedLines = Math.max(8, Math.ceil(Math.max(visibleLength, 120) / 40));
-  const width = Math.max(440, Math.min(620, Math.round(selection.absoluteBounds.width * 0.48) + 220));
-  const height = Math.max(520, Math.min(Math.round(display.workArea.height * 0.84), 400 + estimatedLines * 20));
+  const estimatedLines = Math.max(4, Math.ceil(Math.max(visibleLength, 80) / 46));
+  const width = Math.max(380, Math.min(540, Math.round(selection.absoluteBounds.width * 0.24) + 120));
+  const height = Math.max(320, Math.min(Math.round(display.workArea.height * 0.72), 220 + estimatedLines * 18));
 
   return clampResultWindowSize(display, { width, height });
 }
@@ -1153,8 +1153,8 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
     width: display.bounds.width,
     height: display.bounds.height,
     frame: false,
-    transparent: true,
-    backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
+    transparent: false,
+    backgroundColor: '#000000',
     resizable: false,
     hasShadow: false,
     fullscreenable: false,
