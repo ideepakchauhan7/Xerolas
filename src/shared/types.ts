@@ -243,7 +243,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   shortcut: DEFAULT_SHORTCUT,
   widgetPositions: {},
   resultWindowSize: {
-    width: 420,
-    height: 500
+    width: 380,
+    height: 320
   }
 };
