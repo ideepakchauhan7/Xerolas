@@ -142,7 +142,7 @@ export interface DesktopAssistantApi {
   submitSelection: (selection: SelectionPayload) => Promise<void>;
   cancelSelection: () => Promise<void>;
   getResult: () => Promise<AnalysisResult | null>;
-  onResult: (listener: (result: AnalysisResult) => void) => () => void;
+  onResult: (listener: (result: AnalysisResult | null) => void) => () => void;
   getResultStream: () => Promise<ResultStreamState | null>;
   onResultStream: (listener: (result: ResultStreamState | null) => void) => () => void;
   getHistory: () => Promise<HistoryViewModel>;

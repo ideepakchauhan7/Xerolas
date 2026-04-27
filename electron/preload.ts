@@ -43,7 +43,7 @@ const api: DesktopAssistantApi = {
     ipcRenderer.invoke('overlay:submit', selection) as Promise<void>,
   cancelSelection: () => ipcRenderer.invoke('overlay:cancel') as Promise<void>,
   getResult: () => ipcRenderer.invoke('result:get') as Promise<AnalysisResult | null>,
-  onResult: (listener) => subscribe<AnalysisResult>('result:update', listener),
+  onResult: (listener) => subscribe<AnalysisResult | null>('result:update', listener),
   getResultStream: () =>
     ipcRenderer.invoke('result:stream:get') as Promise<ResultStreamState | null>,
   onResultStream: (listener) =>

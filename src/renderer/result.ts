@@ -258,9 +258,16 @@ window.addEventListener('keydown', async (event) => {
 
 window.desktopAssistant.onResult((result) => {
   currentResult = result;
-  if (!currentStream) {
-    renderResult(result);
+  if (currentStream) {
+    return;
   }
+
+  if (result) {
+    renderResult(result);
+    return;
+  }
+
+  renderEmptyState();
 });
 window.desktopAssistant.onResultStream((streamState) => {
   if (streamState) {

@@ -110,8 +110,9 @@ let updateGithubRepo = '';
 let appManagedDefaults: Partial<Pick<AppSettings, 'quickActionId' | 'promptTemplate'>> = {};
 let backendSession: BackendSession | null = null;
 let backendSessionRequest: Promise<BackendSession> | null = null;
-let captureRestoreState: { resultWasVisible: boolean; settingsWasVisible: boolean } = {
-  resultWasVisible: false,
+let activeCaptureSessionId: number | null = null;
+let nextCaptureSessionId = 0;
+let captureRestoreState: { settingsWasVisible: boolean } = {
   settingsWasVisible: false
 };
 const widgetWindows = new Map<string, BrowserWindow>();
@@ -417,6 +418,42 @@ function pushResultStreamState(nextState: ResultStreamState | null): void {
   currentResultStream = nextState;
   broadcastResultStream();
   broadcastState();
+}
+
+function broadcastActiveResult(): void {
+  [appWindows.result]
+    .filter((window): window is BrowserWindow => Boolean(window && !window.isDestroyed()))
+    .forEach((window) => window.webContents.send('result:update', latestAnalysis));
+}
+
+function beginCaptureSession(): number {
+  const captureSessionId = ++nextCaptureSessionId;
+  activeCaptureSessionId = captureSessionId;
+  return captureSessionId;
+}
+
+function endCaptureSession(): void {
+  activeCaptureSessionId = null;
+}
+
+function isCaptureSessionActive(captureSessionId: number | null | undefined): boolean {
+  return captureSessionId !== null && captureSessionId !== undefined && activeCaptureSessionId === captureSessionId;
+}
+
+async function clearActiveResultState(options: { hideWindow?: boolean } = {}): Promise<void> {
+  latestAnalysis = null;
+  resultWindowAutoResizeEnabled = false;
+  broadcastActiveResult();
+  pushResultStreamState(null);
+  if (options.hideWindow !== false) {
+    await hideResultWindow();
+  }
+}
+
+async function dismissActiveCaptureSession(): Promise<void> {
+  endCaptureSession();
+  hideOverlayWindow();
+  await clearActiveResultState();
 }
 
 function clearError(): void {
@@ -893,9 +930,7 @@ async function showResultWindow(options: {
       settingResultWindowBounds = false;
     }
   }
-  if (latestAnalysis) {
-    resultWindow.webContents.send('result:update', latestAnalysis);
-  }
+  resultWindow.webContents.send('result:update', latestAnalysis);
   resultWindow.webContents.send('history:update', buildHistoryViewModel());
   resultWindow.webContents.send('result:stream', options.clearStream ? null : currentResultStream);
   resultWindow.show();
@@ -1148,7 +1183,7 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
   overlay.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();
-      overlay.hide();
+      void cancelCapture();
     }
   });
   overlay.on('closed', () => {
@@ -1301,6 +1336,7 @@ async function analyzeExistingImage(
   selection: SelectionPayload,
   quickActionId: QuickActionId,
   fallbackPromptTemplate: string,
+  captureSessionId: number,
   options: { repositionResult?: boolean } = {}
 ): Promise<void> {
   const backendConfigurationIssue = getBackendConfigurationIssue();
@@ -1309,6 +1345,10 @@ async function analyzeExistingImage(
   }
 
   const promptTemplate = resolvePromptTemplateForQuickAction(quickActionId, fallbackPromptTemplate);
+  if (!isCaptureSessionActive(captureSessionId)) {
+    return;
+  }
+
   const initialStreamState: ResultStreamState = {
     status: 'loading',
     quickActionId,
@@ -1344,12 +1384,20 @@ async function analyzeExistingImage(
       },
       {
         onMeta: ({ model, usedFallback }) => {
+          if (!isCaptureSessionActive(captureSessionId)) {
+            return;
+          }
+
           markCapturePerf('backend-stream-meta', {
             model,
             usedFallback
           });
         },
         onDelta: ({ text }) => {
+          if (!isCaptureSessionActive(captureSessionId)) {
+            return;
+          }
+
           pushResultStreamState({
             status: 'streaming',
             quickActionId,
@@ -1370,6 +1418,10 @@ async function analyzeExistingImage(
       session = await fetchBackendSession(true);
       analysis = await startStream(session.token);
     } else {
+      if (!isCaptureSessionActive(captureSessionId)) {
+        return;
+      }
+
       pushResultStreamState({
         status: 'error',
         quickActionId,
@@ -1379,6 +1431,10 @@ async function analyzeExistingImage(
       });
       throw error;
     }
+  }
+
+  if (!isCaptureSessionActive(captureSessionId)) {
+    return;
   }
 
   markCapturePerf('backend-request-complete', {
@@ -1408,7 +1464,7 @@ async function analyzeExistingImage(
   broadcastState();
 }
 
-async function finalizeCapture(selection: SelectionPayload): Promise<void> {
+async function finalizeCapture(selection: SelectionPayload, captureSessionId: number): Promise<void> {
   const activeOverlayPayload = overlayPayload;
   if (!activeOverlayPayload) {
     throw new Error('No active capture session was found.');
@@ -1434,6 +1490,7 @@ async function finalizeCapture(selection: SelectionPayload): Promise<void> {
     selection,
     settings.quickActionId,
     settings.promptTemplate,
+    captureSessionId,
     { repositionResult: true }
   );
 }
@@ -1451,12 +1508,14 @@ async function rerunLatestAnalysis(nextQuickActionId: QuickActionId): Promise<vo
     markCapturePerf('triggered', {
       quickActionId: nextQuickActionId
     });
+    const captureSessionId = activeCaptureSessionId ?? beginCaptureSession();
     await analyzeExistingImage(
       latestAnalysis.imageDataUrl,
       toPngBytes(latestAnalysis.imageDataUrl),
       latestAnalysis.selection,
       nextQuickActionId,
-      latestAnalysis.promptTemplate
+      latestAnalysis.promptTemplate,
+      captureSessionId
     );
   } catch (error) {
     setError(error);
@@ -1468,17 +1527,12 @@ async function rerunLatestAnalysis(nextQuickActionId: QuickActionId): Promise<vo
   }
 }
 
-async function cancelCapture(restorePreviousResult: boolean): Promise<void> {
-  hideOverlayWindow();
+async function cancelCapture(): Promise<void> {
+  await dismissActiveCaptureSession();
 
   captureInProgress = false;
   showWidgets();
   showSettingsWindowIfNeeded();
-
-  if (restorePreviousResult && captureRestoreState.resultWasVisible && latestAnalysis) {
-    await showResultWindow();
-  }
-
   broadcastState();
   currentCapturePerfSession = null;
 }
@@ -1502,29 +1556,30 @@ async function startCaptureFlow(nextQuickActionId?: QuickActionId): Promise<void
   }
 
   clearError();
+  await dismissActiveCaptureSession();
   captureInProgress = true;
   captureRestoreState = {
-    resultWasVisible: Boolean(appWindows.result?.isVisible()),
     settingsWasVisible: Boolean(appWindows.settings?.isVisible())
   };
 
   hideWidgets();
-  await hideResultWindow();
   hideSettingsWindow();
-  pushResultStreamState(null);
+  const captureSessionId = beginCaptureSession();
 
   try {
     overlayPayload = await buildOverlayPayload();
+    if (!isCaptureSessionActive(captureSessionId)) {
+      return;
+    }
+
     await showOverlayWindow(overlayPayload);
   } catch (error) {
+    endCaptureSession();
     captureInProgress = false;
     showWidgets();
     showSettingsWindowIfNeeded();
     setError(error);
     showCaptureFailure(error);
-    if (captureRestoreState.resultWasVisible && latestAnalysis) {
-      await showResultWindow();
-    }
     currentCapturePerfSession = null;
   }
 }
@@ -1658,7 +1713,7 @@ function installIpcHandlers(): void {
   );
   ipcMain.handle('overlay:getPayload', () => overlayPayload);
   ipcMain.handle('overlay:cancel', async () => {
-    await cancelCapture(true);
+    await cancelCapture();
   });
   ipcMain.handle('overlay:submit', async (_event, selection: SelectionPayload) => {
     try {
@@ -1666,14 +1721,16 @@ function installIpcHandlers(): void {
         width: selection.absoluteBounds.width,
         height: selection.absoluteBounds.height
       });
-      await finalizeCapture(selection);
+      const captureSessionId = activeCaptureSessionId;
+      if (captureSessionId === null) {
+        return;
+      }
+
+      await finalizeCapture(selection, captureSessionId);
     } catch (error) {
       showSettingsWindowIfNeeded();
       setError(error);
       showCaptureFailure(error);
-      if (captureRestoreState.resultWasVisible && latestAnalysis) {
-        await showResultWindow();
-      }
     } finally {
       captureInProgress = false;
       broadcastState();
@@ -1783,7 +1840,7 @@ app.whenReady().then(async () => {
   }
 
   historyItems = loadHistory();
-  latestAnalysis = historyItems[0] ?? null;
+  latestAnalysis = null;
   markAppPerf('state-loaded', {
     historyCount: historyItems.length
   });
