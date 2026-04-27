@@ -27,8 +27,9 @@
 
 html,
 body {
+  width: 100%;
+  height: 100%;
   margin: 0;
-  min-height: 100%;
 }
 
 body {
@@ -490,6 +491,7 @@ button {
 }
 
 .result-page {
+  height: 100%;
   padding: 10px;
 }
 
@@ -497,6 +499,7 @@ button {
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -549,6 +552,7 @@ button {
   z-index: 1;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 12px;
@@ -644,6 +648,7 @@ button {
 }
 
 .result-body-copy {
+  height: 100%;
   min-height: 0;
   overflow: auto;
   color: var(--text-soft);
