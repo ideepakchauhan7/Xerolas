@@ -2,11 +2,15 @@ import {
   QUICK_ACTIONS,
   type AnalysisResult,
   type QuickActionId,
-  type ResultStreamState
+  type ResultStreamState,
+  type SourceLink
 } from '../shared/types';
 
 const resultText = document.getElementById('result-text') as HTMLDivElement;
 const quickActions = document.getElementById('quick-actions') as HTMLDivElement;
+const groundingBadge = document.getElementById('grounding-badge') as HTMLDivElement;
+const sourcesSection = document.getElementById('result-sources') as HTMLElement;
+const sourcesList = document.getElementById('result-sources-list') as HTMLUListElement;
 
 let currentResult: AnalysisResult | null = null;
 let currentStream: ResultStreamState | null = null;
@@ -81,6 +85,46 @@ function stopTypewriter(): void {
     window.clearTimeout(typingTimer);
     typingTimer = null;
   }
+}
+
+function clearGroundingInfo(): void {
+  groundingBadge.hidden = true;
+  sourcesSection.hidden = true;
+  sourcesList.innerHTML = '';
+}
+
+function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): void {
+  groundingBadge.hidden = !groundingUsed;
+
+  sourcesList.innerHTML = '';
+  if (!sources.length) {
+    sourcesSection.hidden = true;
+    return;
+  }
+
+  sourcesSection.hidden = false;
+
+  sources.forEach((source) => {
+    const item = document.createElement('li');
+    item.className = 'result-source-item';
+
+    const link = document.createElement('a');
+    link.href = source.url;
+    link.className = 'result-source-link';
+    link.textContent = source.title;
+    link.addEventListener('click', async (event) => {
+      event.preventDefault();
+      await window.desktopAssistant.openExternalLink(source.url);
+    });
+
+    const host = document.createElement('span');
+    host.className = 'result-source-host';
+    host.textContent = source.host;
+
+    item.appendChild(link);
+    item.appendChild(host);
+    sourcesList.appendChild(item);
+  });
 }
 
 function renderStreamBody(): void {
@@ -224,10 +268,12 @@ function renderResult(result: AnalysisResult): void {
   currentStream = null;
   renderQuickActions(result.quickActionId);
   renderStructuredText(result.text);
+  renderGroundingInfo(result.groundingUsed, result.sources);
 }
 
 function renderStreamState(state: ResultStreamState): void {
   currentStream = state;
+  clearGroundingInfo();
   renderQuickActions(state.quickActionId);
   targetStreamText = state.text;
   if (displayedStreamText.length > targetStreamText.length) {
@@ -246,6 +292,7 @@ function renderEmptyState(): void {
   resultText.innerHTML = '';
   resultText.style.whiteSpace = '';
   resultText.classList.remove('is-streaming');
+  clearGroundingInfo();
   appendParagraph(resultText, 'Capture any part of your screen and Xerolas will show the answer here.');
   renderQuickActions('describe');
 }

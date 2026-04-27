@@ -3,6 +3,7 @@ import {
   isRetryableStatus,
   ProviderRequestError
 } from './provider-error';
+import type { SourceLink } from '../src/shared/types';
 
 interface AnalyzeImageInput {
   apiKey: string;
@@ -17,10 +18,16 @@ interface GeminiPart {
   text?: string;
 }
 
+interface GeminiGroundingResult {
+  groundingUsed: boolean;
+  sources: SourceLink[];
+}
+
 interface GeminiOpenStreamResult {
   stream: AsyncGenerator<string>;
   model: string;
   usedFallback: boolean;
+  getGrounding: () => GeminiGroundingResult;
 }
 
 const SHARED_GEMINI_INSTRUCTION = [
@@ -33,8 +40,16 @@ const SHARED_GEMINI_INSTRUCTION = [
   'Use plain text only. Do not use markdown tables, code fences, or bold markers.'
 ].join(' ');
 
+const EMPTY_GROUNDING: GeminiGroundingResult = {
+  groundingUsed: false,
+  sources: []
+};
+
 function buildGeminiPrompt(promptTemplate: string): string {
-  return `${SHARED_GEMINI_INSTRUCTION}\n\nUser request:\n${promptTemplate.trim()}`;
+  return `${SHARED_GEMINI_INSTRUCTION}
+
+User request:
+${promptTemplate.trim()}`;
 }
 
 function extractGeminiTextChunk(payload: Record<string, unknown>): string {
@@ -66,6 +81,112 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+function deriveSourceHost(uri: string, title: string | null): string {
+  try {
+    const hostname = new URL(uri).hostname.replace(/^www\./i, '').trim();
+    if (hostname && !hostname.includes('vertexaisearch.cloud.google.com')) {
+      return hostname;
+    }
+  } catch {
+    // Ignore parse failures and fall through to title-based fallback.
+  }
+
+  const normalizedTitle = title?.trim() ?? '';
+  if (/^[\w.-]+\.[A-Za-z]{2,}$/i.test(normalizedTitle)) {
+    return normalizedTitle;
+  }
+
+  try {
+    const hostname = new URL(uri).hostname.replace(/^www\./i, '').trim();
+    if (hostname) {
+      return hostname;
+    }
+  } catch {
+    // Ignore parse failures and use a generic label.
+  }
+
+  return 'Source';
+}
+
+function normalizeGroundingSources(chunks: unknown[]): SourceLink[] {
+  const seenUrls = new Set<string>();
+  const sources: SourceLink[] = [];
+
+  for (const chunk of chunks) {
+    const web =
+      chunk && typeof chunk === 'object'
+        ? ((chunk as { web?: unknown }).web as Record<string, unknown> | undefined)
+        : undefined;
+    const uri = typeof web?.uri === 'string' ? web.uri.trim() : '';
+    const title = typeof web?.title === 'string' ? web.title.trim() : '';
+
+    if (!uri || seenUrls.has(uri)) {
+      continue;
+    }
+
+    try {
+      new URL(uri);
+    } catch {
+      continue;
+    }
+
+    seenUrls.add(uri);
+    const host = deriveSourceHost(uri, title || null);
+    sources.push({
+      title: title || host || uri,
+      url: uri,
+      host
+    });
+
+    if (sources.length >= 5) {
+      break;
+    }
+  }
+
+  return sources;
+}
+
+function extractGeminiGrounding(payload: Record<string, unknown>): GeminiGroundingResult {
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+
+  for (const candidate of candidates) {
+    const groundingMetadata =
+      candidate && typeof candidate === 'object'
+        ? ((candidate as { groundingMetadata?: unknown }).groundingMetadata as
+            | Record<string, unknown>
+            | undefined)
+        : undefined;
+
+    if (!groundingMetadata) {
+      continue;
+    }
+
+    const queries = Array.isArray(groundingMetadata.webSearchQueries)
+      ? groundingMetadata.webSearchQueries.filter(
+          (query): query is string => typeof query === 'string' && query.trim().length > 0
+        )
+      : [];
+    const chunks = Array.isArray(groundingMetadata.groundingChunks)
+      ? groundingMetadata.groundingChunks
+      : [];
+    const supports = Array.isArray(groundingMetadata.groundingSupports)
+      ? groundingMetadata.groundingSupports
+      : [];
+
+    const sources = normalizeGroundingSources(chunks);
+    const groundingUsed = queries.length > 0 || chunks.length > 0 || supports.length > 0;
+
+    if (groundingUsed || sources.length > 0) {
+      return {
+        groundingUsed,
+        sources
+      };
+    }
+  }
+
+  return EMPTY_GROUNDING;
+}
+
 function createGeminiRequestBody(input: {
   promptTemplate: string;
   imageMimeType: string;
@@ -83,6 +204,11 @@ function createGeminiRequestBody(input: {
             }
           }
         ]
+      }
+    ],
+    tools: [
+      {
+        google_search: {}
       }
     ]
   });
@@ -107,7 +233,7 @@ async function requestGeminiAnalysisStream(input: {
   promptTemplate: string;
   imageMimeType: string;
   imageBase64Data: string;
-}): Promise<{ stream: AsyncGenerator<string>; model: string }> {
+}): Promise<{ stream: AsyncGenerator<string>; model: string; getGrounding: () => GeminiGroundingResult }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:streamGenerateContent?alt=sse`,
     {
@@ -153,6 +279,8 @@ async function requestGeminiAnalysisStream(input: {
     throw new Error('Gemini returned no stream for this image.');
   }
 
+  let latestGrounding = EMPTY_GROUNDING;
+
   const stream = async function* (): AsyncGenerator<string> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
@@ -175,6 +303,10 @@ async function requestGeminiAnalysisStream(input: {
       }
 
       const payload = JSON.parse(payloadText) as Record<string, unknown>;
+      const grounding = extractGeminiGrounding(payload);
+      if (grounding.groundingUsed || grounding.sources.length > 0) {
+        latestGrounding = grounding;
+      }
       const chunkText = extractGeminiTextChunk(payload);
       return chunkText ? [chunkText] : [];
     };
@@ -208,7 +340,8 @@ async function requestGeminiAnalysisStream(input: {
 
   return {
     stream: stream(),
-    model: input.model
+    model: input.model,
+    getGrounding: () => latestGrounding
   };
 }
 
@@ -282,7 +415,7 @@ export async function streamImageWithGemini(
 
 export async function analyzeImageWithGemini(
   input: AnalyzeImageInput
-): Promise<{ text: string; model: string; usedFallback: boolean }> {
+): Promise<{ text: string; model: string; usedFallback: boolean; groundingUsed: boolean; sources: SourceLink[] }> {
   const opened = await openGeminiAnalysisStream(input);
   let text = '';
 
@@ -294,9 +427,13 @@ export async function analyzeImageWithGemini(
     throw new Error('Gemini returned no text for this image.');
   }
 
+  const grounding = opened.getGrounding();
+
   return {
     text: text.trim(),
     model: opened.model,
-    usedFallback: opened.usedFallback
+    usedFallback: opened.usedFallback,
+    groundingUsed: grounding.groundingUsed,
+    sources: grounding.sources
   };
 }

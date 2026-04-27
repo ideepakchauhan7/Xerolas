@@ -9,6 +9,7 @@ import {
   Menu,
   nativeImage,
   screen,
+  shell,
   systemPreferences,
   Tray
 } from 'electron';
@@ -1448,6 +1449,8 @@ async function analyzeExistingImage(
     provider: analysis.provider,
     model: analysis.model,
     usedFallback: analysis.usedFallback,
+    groundingUsed: analysis.groundingUsed,
+    sources: analysis.sources,
     quickActionId,
     promptTemplate,
     text: analysis.text,
@@ -1688,6 +1691,24 @@ function installIpcHandlers(): void {
   });
   ipcMain.handle('result:minimize', async () => {
     await minimizeResultWindow();
+  });
+  ipcMain.handle('external:open', async (_event, url: string) => {
+    if (typeof url !== 'string' || !url.trim()) {
+      return;
+    }
+
+    let target: URL;
+    try {
+      target = new URL(url.trim());
+    } catch {
+      return;
+    }
+
+    if (!['https:', 'http:'].includes(target.protocol)) {
+      return;
+    }
+
+    await shell.openExternal(target.toString());
   });
   ipcMain.handle('result:share', async () => {
     await shareLatestResult();
