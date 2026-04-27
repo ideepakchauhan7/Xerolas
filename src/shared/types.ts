@@ -53,12 +53,20 @@ export interface QuickActionPreset {
   prompt: string;
 }
 
+export interface SourceLink {
+  title: string;
+  url: string;
+  host: string;
+}
+
 export interface AnalysisResult {
   id: string;
   createdAt: string;
   provider: string;
   model: string;
   usedFallback: boolean;
+  groundingUsed: boolean;
+  sources: SourceLink[];
   quickActionId: QuickActionId;
   promptTemplate: string;
   text: string;
@@ -135,6 +143,7 @@ export interface DesktopAssistantApi {
   toggleResult: () => Promise<void>;
   collapseResult: () => Promise<void>;
   minimizeResult: () => Promise<void>;
+  openExternalLink: (url: string) => Promise<void>;
   shareResult: () => Promise<void>;
   openSettings: () => Promise<void>;
   getOverlayPayload: () => Promise<OverlayPayload | null>;

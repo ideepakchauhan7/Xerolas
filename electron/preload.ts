@@ -34,6 +34,7 @@ const api: DesktopAssistantApi = {
   toggleResult: () => ipcRenderer.invoke('result:toggle') as Promise<void>,
   collapseResult: () => ipcRenderer.invoke('result:collapse') as Promise<void>,
   minimizeResult: () => ipcRenderer.invoke('result:minimize') as Promise<void>,
+  openExternalLink: (url: string) => ipcRenderer.invoke('external:open', url) as Promise<void>,
   shareResult: () => ipcRenderer.invoke('result:share') as Promise<void>,
   openSettings: () => ipcRenderer.invoke('settings:open') as Promise<void>,
   getOverlayPayload: () =>

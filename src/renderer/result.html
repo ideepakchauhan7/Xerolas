@@ -17,8 +17,15 @@
       <div class="result-backdrop-orb result-backdrop-orb--blue"></div>
 
       <section class="result-minimal-shell">
-        <nav id="quick-actions" class="result-mini-actions" aria-label="Result modes"></nav>
+        <div class="result-topbar">
+          <nav id="quick-actions" class="result-mini-actions" aria-label="Result modes"></nav>
+          <div id="grounding-badge" class="result-grounding-badge" hidden>Web search used</div>
+        </div>
         <article id="result-text" class="result-body-copy result-body-copy--minimal"></article>
+        <section id="result-sources" class="result-sources" hidden>
+          <h2 class="result-sources-title">Sources</h2>
+          <ul id="result-sources-list" class="result-sources-list"></ul>
+        </section>
       </section>
     </main>
   </body>

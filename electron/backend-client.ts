@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { QuickActionId } from '../src/shared/types';
+import type { QuickActionId, SourceLink } from '../src/shared/types';
 
 export class GatewayRequestError extends Error {
   status: number;
@@ -16,6 +16,8 @@ interface AnalyzeResponsePayload {
   provider?: string;
   model?: string;
   usedFallback?: boolean;
+  groundingUsed?: boolean;
+  sources?: unknown;
   message?: string;
 }
 
@@ -41,6 +43,8 @@ interface StreamCompletePayload {
   provider?: string;
   model?: string;
   usedFallback?: boolean;
+  groundingUsed?: boolean;
+  sources?: unknown;
 }
 
 export interface BackendSession {
@@ -149,6 +153,39 @@ function buildTrustHeaders(sessionToken: string): Record<string, string> {
   };
 }
 
+function normalizeSourceLinks(value: unknown): SourceLink[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+
+      const raw = entry as Record<string, unknown>;
+      if (
+        typeof raw.title !== 'string' ||
+        !raw.title.trim() ||
+        typeof raw.url !== 'string' ||
+        !raw.url.trim() ||
+        typeof raw.host !== 'string' ||
+        !raw.host.trim()
+      ) {
+        return null;
+      }
+
+      return {
+        title: raw.title.trim(),
+        url: raw.url.trim(),
+        host: raw.host.trim()
+      } satisfies SourceLink;
+    })
+    .filter((entry): entry is SourceLink => entry !== null)
+    .slice(0, 5);
+}
+
 function parseSseEvents(chunkBuffer: string): {
   events: Array<{ event: string; data: string }>;
   remainder: string;
@@ -239,7 +276,7 @@ export async function requestSession(
 
 export async function analyzeImage(
   input: AnalyzeImageInput
-): Promise<{ text: string; provider: string; model: string; usedFallback: boolean }> {
+): Promise<{ text: string; provider: string; model: string; usedFallback: boolean; groundingUsed: boolean; sources: SourceLink[] }> {
   const payload = await requestJson<AnalyzeResponsePayload>({
     backendBaseUrl: input.backendBaseUrl,
     method: 'POST',
@@ -262,14 +299,16 @@ export async function analyzeImage(
       typeof payload.model === 'string' && payload.model.trim()
         ? payload.model.trim()
         : 'unknown',
-    usedFallback: Boolean(payload.usedFallback)
+    usedFallback: Boolean(payload.usedFallback),
+    groundingUsed: Boolean(payload.groundingUsed),
+    sources: normalizeSourceLinks(payload.sources)
   };
 }
 
 export async function streamAnalyzeImage(
   input: AnalyzeImageInput,
   handlers: AnalyzeStreamHandlers = {}
-): Promise<{ text: string; provider: string; model: string; usedFallback: boolean }> {
+): Promise<{ text: string; provider: string; model: string; usedFallback: boolean; groundingUsed: boolean; sources: SourceLink[] }> {
   const baseUrl = normalizeBaseUrl(input.backendBaseUrl);
   const url = new URL(`${baseUrl}/api/v1/analyze/stream`);
   assertSecureTarget(url);
@@ -298,6 +337,8 @@ export async function streamAnalyzeImage(
   let provider = 'gemini';
   let model = 'unknown';
   let usedFallback = false;
+  let groundingUsed = false;
+  let sources: SourceLink[] = [];
 
   const processEvent = (eventName: string, dataText: string): void => {
     if (!dataText || dataText === '[DONE]') {
@@ -339,6 +380,8 @@ export async function streamAnalyzeImage(
         typeof complete.provider === 'string' && complete.provider.trim() ? complete.provider.trim() : provider;
       model = typeof complete.model === 'string' && complete.model.trim() ? complete.model.trim() : model;
       usedFallback = Boolean(complete.usedFallback);
+      groundingUsed = Boolean(complete.groundingUsed);
+      sources = normalizeSourceLinks(complete.sources);
       return;
     }
 
@@ -382,6 +425,8 @@ export async function streamAnalyzeImage(
     text: aggregateText.trim(),
     provider,
     model,
-    usedFallback
+    usedFallback,
+    groundingUsed,
+    sources
   };
 }

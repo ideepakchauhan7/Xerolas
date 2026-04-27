@@ -8,6 +8,7 @@ import {
   type Point,
   type QuickActionId,
   type Size,
+  type SourceLink,
   type WidgetPositionMap
 } from '../src/shared/types';
 
@@ -140,6 +141,30 @@ function sanitizeRect(value: unknown): { x: number; y: number; width: number; he
   };
 }
 
+function sanitizeSourceLink(value: unknown): SourceLink | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const raw = value as Record<string, unknown>;
+  if (
+    typeof raw.title !== 'string' ||
+    !raw.title.trim() ||
+    typeof raw.url !== 'string' ||
+    !raw.url.trim() ||
+    typeof raw.host !== 'string' ||
+    !raw.host.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    title: raw.title.trim(),
+    url: raw.url.trim(),
+    host: raw.host.trim()
+  };
+}
+
 function sanitizeHistoryEntry(value: unknown): HistoryEntry | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -149,6 +174,9 @@ function sanitizeHistoryEntry(value: unknown): HistoryEntry | null {
   const quickActionId = sanitizeQuickActionId(raw.quickActionId);
   const selection = raw.selection as Record<string, unknown> | undefined;
   const absoluteBounds = sanitizeRect(selection?.absoluteBounds);
+  const sources = Array.isArray(raw.sources)
+    ? raw.sources.map((entry) => sanitizeSourceLink(entry)).filter((entry): entry is SourceLink => entry !== null)
+    : [];
 
   if (
     typeof raw.id !== 'string' ||
@@ -181,6 +209,8 @@ function sanitizeHistoryEntry(value: unknown): HistoryEntry | null {
     provider: raw.provider.trim(),
     model: raw.model.trim(),
     usedFallback: raw.usedFallback,
+    groundingUsed: typeof raw.groundingUsed === 'boolean' ? raw.groundingUsed : sources.length > 0,
+    sources,
     quickActionId,
     promptTemplate: raw.promptTemplate.trim(),
     text: raw.text.trim(),

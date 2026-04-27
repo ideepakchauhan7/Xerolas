@@ -190,7 +190,9 @@ async function handleAnalyze(
       provider: 'gemini',
       model: analysis.model,
       quickActionId: payload.quickActionId,
-      usedFallback: analysis.usedFallback
+      usedFallback: analysis.usedFallback,
+      groundingUsed: analysis.groundingUsed,
+      sources: analysis.sources
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The Gemini request failed.';
@@ -261,7 +263,9 @@ async function handleAnalyzeStream(
                 provider: 'gemini',
                 model: opened.model,
                 quickActionId: payload.quickActionId,
-                usedFallback: opened.usedFallback
+                usedFallback: opened.usedFallback,
+                groundingUsed: opened.getGrounding().groundingUsed,
+                sources: opened.getGrounding().sources
               })
             )
           );
