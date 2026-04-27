@@ -70,7 +70,7 @@ const SHOW_FLOATING_WIDGET = false;
 const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
 const SHOULD_PREWARM_OVERLAY_WINDOW = process.platform !== 'linux';
 const WIDGET_SIZE = { width: 164, height: 84 };
-const RESULT_MIN_SIZE = { width: 380, height: 320 }; // keep the answer compact by default while still large enough to read
+const RESULT_MIN_SIZE = { width: 340, height: 252 }; // keep the answer compact by default while still large enough to read
 const SETTINGS_WINDOW_SIZE = { width: 940, height: 820 };
 const WINDOW_PREWARM_DELAY_MS = 180;
 const LEGACY_DEFAULT_SHORTCUTS = new Set([
@@ -138,6 +138,20 @@ function getDesktopBounds(displays: Electron.Display[]): Rect {
   const minY = Math.min(...displays.map((display) => display.bounds.y));
   const maxX = Math.max(...displays.map((display) => display.bounds.x + display.bounds.width));
   const maxY = Math.max(...displays.map((display) => display.bounds.y + display.bounds.height));
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY
+  };
+}
+
+function getVisibleDesktopBounds(displays: Electron.Display[]): Rect {
+  const minX = Math.min(...displays.map((display) => display.workArea.x));
+  const minY = Math.min(...displays.map((display) => display.workArea.y));
+  const maxX = Math.max(...displays.map((display) => display.workArea.x + display.workArea.width));
+  const maxY = Math.max(...displays.map((display) => display.workArea.y + display.workArea.height));
 
   return {
     x: minX,
@@ -776,7 +790,11 @@ function computeResultBounds(selection: Rect, preferredSize?: Size): Rect {
   };
 }
 
-function estimateAutoResultWindowSize(selection: SelectionPayload, text: string): Size {
+function estimateAutoResultWindowSize(
+  selection: SelectionPayload,
+  text: string,
+  options: { groundingUsed?: boolean } = {}
+): Size {
   const display = screen.getDisplayMatching({
     x: selection.absoluteBounds.x,
     y: selection.absoluteBounds.y,
@@ -784,9 +802,13 @@ function estimateAutoResultWindowSize(selection: SelectionPayload, text: string)
     height: Math.max(selection.absoluteBounds.height, 1)
   });
   const visibleLength = text.replace(/\s+/g, ' ').trim().length;
-  const estimatedLines = Math.max(4, Math.ceil(Math.max(visibleLength, 80) / 46));
-  const width = Math.max(380, Math.min(540, Math.round(selection.absoluteBounds.width * 0.24) + 120));
-  const height = Math.max(320, Math.min(Math.round(display.workArea.height * 0.72), 220 + estimatedLines * 18));
+  const estimatedLines = Math.max(3, Math.ceil(Math.max(visibleLength, 48) / 54));
+  const width = Math.max(340, Math.min(500, Math.round(selection.absoluteBounds.width * 0.2) + 104));
+  const groundingHeight = options.groundingUsed ? 68 : 0;
+  const height = Math.max(
+    RESULT_MIN_SIZE.height,
+    Math.min(Math.round(display.workArea.height * 0.68), 166 + estimatedLines * 18 + groundingHeight)
+  );
 
   return clampResultWindowSize(display, { width, height });
 }
@@ -1069,6 +1091,7 @@ async function buildOverlayPayload(): Promise<OverlayPayload> {
 
   const displays = screen.getAllDisplays();
   const desktopBounds = getDesktopBounds(displays);
+  const visibleDesktopBounds = getVisibleDesktopBounds(displays);
   const maxWidth = Math.max(
     ...displays.map((display) => Math.ceil(display.bounds.width * display.scaleFactor))
   );
@@ -1100,13 +1123,19 @@ async function buildOverlayPayload(): Promise<OverlayPayload> {
         return null;
       }
 
+      const displayBounds = toRect(display.bounds);
+      const workAreaBounds = toRect(display.workArea);
+      const croppedThumbnail = matchedSource.thumbnail.crop(
+        scaleCrop(workAreaBounds, displayBounds, matchedSource.thumbnail.getSize())
+      );
+
       return {
         id: String(display.id),
         label: makeDisplayLabel(display, index),
-        bounds: toRect(display.bounds),
-        workArea: toRect(display.workArea),
+        bounds: workAreaBounds,
+        workArea: workAreaBounds,
         scaleFactor: display.scaleFactor,
-        imageDataUrl: matchedSource.thumbnail.toDataURL()
+        imageDataUrl: croppedThumbnail.toDataURL()
       } satisfies DisplaySnapshot;
     })
     .filter((snapshot): snapshot is DisplaySnapshot => Boolean(snapshot));
@@ -1114,7 +1143,7 @@ async function buildOverlayPayload(): Promise<OverlayPayload> {
   if (matchedSnapshots.length === displays.length) {
     return {
       mode: 'per-display',
-      desktopBounds,
+      desktopBounds: visibleDesktopBounds,
       displays: matchedSnapshots,
       promptLabel: getQuickActionLabel(settings.quickActionId)
     };
@@ -1125,18 +1154,22 @@ async function buildOverlayPayload(): Promise<OverlayPayload> {
     throw new Error('Electron returned an empty desktop thumbnail.');
   }
 
+  const combinedVisibleThumbnail = combinedSource.thumbnail.crop(
+    scaleCrop(visibleDesktopBounds, desktopBounds, combinedSource.thumbnail.getSize())
+  );
+
   return {
     mode: 'combined',
-    desktopBounds,
+    desktopBounds: visibleDesktopBounds,
     displays: displays.map((display, index) => ({
       id: String(display.id),
       label: makeDisplayLabel(display, index),
-      bounds: toRect(display.bounds),
+      bounds: toRect(display.workArea),
       workArea: toRect(display.workArea),
       scaleFactor: display.scaleFactor,
       imageDataUrl: ''
     })),
-    combinedImageDataUrl: combinedSource.thumbnail.toDataURL(),
+    combinedImageDataUrl: combinedVisibleThumbnail.toDataURL(),
     promptLabel: getQuickActionLabel(settings.quickActionId)
   };
 }
@@ -1462,7 +1495,14 @@ async function analyzeExistingImage(
   clearError();
   currentResultStream = null;
   resultWindowAutoResizeEnabled = false;
-  await showResultWindow({ selection, clearStream: true });
+  await showResultWindow({
+    selection,
+    clearStream: true,
+    reposition: true,
+    preferredSize: estimateAutoResultWindowSize(selection, analysis.text, {
+      groundingUsed: analysis.groundingUsed
+    })
+  });
   broadcastResultStream();
   broadcastState();
 }
