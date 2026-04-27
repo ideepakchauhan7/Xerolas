@@ -506,6 +506,7 @@ button {
 .result-card--minimal {
   border-radius: 30px;
   padding: 14px;
+  -webkit-app-region: drag;
   background:
     linear-gradient(180deg, rgba(8, 8, 8, 0.46), rgba(8, 8, 8, 0.72)),
     radial-gradient(circle at 10% 0%, rgba(167, 139, 250, 0.14), transparent 28%),
@@ -622,6 +623,13 @@ button {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.result-mini-action,
+.result-body-copy,
+.result-sources,
+.result-source-link {
+  -webkit-app-region: no-drag;
 }
 
 .result-grounding-badge {
