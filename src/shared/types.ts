@@ -96,6 +96,7 @@ export interface WidgetPositionMap {
 export interface AppSettings {
   quickActionId: QuickActionId;
   promptTemplate: string;
+  translateTargetLanguage: string;
   shortcut: string;
   widgetPositions: WidgetPositionMap;
   resultWindowSize: Size;
@@ -131,6 +132,7 @@ export interface SaveSettingsResult {
 export interface SaveSettingsInput {
   quickActionId?: QuickActionId;
   promptTemplate?: string;
+  translateTargetLanguage?: string;
   shortcut?: string;
   widgetPositions?: WidgetPositionMap;
 }
@@ -165,6 +167,17 @@ export interface DesktopAssistantApi {
   saveSettings: (patch: SaveSettingsInput) => Promise<SaveSettingsResult>;
 }
 
+export const DEFAULT_TRANSLATE_TARGET_LANGUAGE = 'English';
+
+export function normalizeTranslateTargetLanguage(value: string | null | undefined): string {
+  const normalizedValue = value?.trim();
+  return normalizedValue || DEFAULT_TRANSLATE_TARGET_LANGUAGE;
+}
+
+export function buildTranslatePrompt(targetLanguage: string): string {
+  return `Translate any visible text into natural ${normalizeTranslateTargetLanguage(targetLanguage)} and preserve important formatting cues when possible.`;
+}
+
 export const QUICK_ACTIONS: QuickActionPreset[] = [
   {
     id: 'describe',
@@ -190,9 +203,8 @@ export const QUICK_ACTIONS: QuickActionPreset[] = [
   {
     id: 'translate',
     label: 'Translate',
-    description: 'Translate visible text into natural English.',
-    prompt:
-      'Translate any visible text into natural English and preserve important formatting cues when possible.'
+    description: 'Translate visible text into your saved target language.',
+    prompt: buildTranslatePrompt(DEFAULT_TRANSLATE_TARGET_LANGUAGE)
   },
   {
     id: 'summarize',
@@ -212,13 +224,6 @@ export const QUICK_ACTIONS: QuickActionPreset[] = [
 
 export const DEFAULT_QUICK_ACTION_ID: QuickActionId = 'describe';
 
-export const DEFAULT_PROMPT_TEMPLATE =
-  QUICK_ACTIONS.find((preset) => preset.id === DEFAULT_QUICK_ACTION_ID)?.prompt ??
-  'Answer the most useful question about this selected content. Focus on the main subject, solve or explain the visible content when possible, ignore browser or app chrome unless it matters, and keep the answer concise, grounded, and practical. Use plain text only.';
-
-export const DEFAULT_SHORTCUT = 'Control+Shift+Space';
-export const HISTORY_LIMIT = 10;
-
 export function getQuickActionById(id: QuickActionId | null | undefined): QuickActionPreset | null {
   if (!id || id === 'custom') {
     return null;
@@ -227,22 +232,55 @@ export function getQuickActionById(id: QuickActionId | null | undefined): QuickA
   return QUICK_ACTIONS.find((preset) => preset.id === id) ?? null;
 }
 
+export function getQuickActionPrompt(
+  id: QuickActionId | null | undefined,
+  options: { translateTargetLanguage?: string } = {}
+): string | null {
+  if (!id || id === 'custom') {
+    return null;
+  }
+
+  if (id === 'translate') {
+    return buildTranslatePrompt(options.translateTargetLanguage ?? DEFAULT_TRANSLATE_TARGET_LANGUAGE);
+  }
+
+  return getQuickActionById(id)?.prompt ?? null;
+}
+
+export const DEFAULT_PROMPT_TEMPLATE =
+  getQuickActionPrompt(DEFAULT_QUICK_ACTION_ID) ??
+  'Answer the most useful question about this selected content. Focus on the main subject, solve or explain the visible content when possible, ignore browser or app chrome unless it matters, and keep the answer concise, grounded, and practical. Use plain text only.';
+
+export const DEFAULT_SHORTCUT = 'Control+Shift+Space';
+export const HISTORY_LIMIT = 10;
+
 export function getQuickActionLabel(id: QuickActionId | null | undefined): string {
   return getQuickActionById(id)?.label ?? 'Custom';
 }
 
-export function resolveQuickActionId(promptTemplate: string): QuickActionId {
+export function resolveQuickActionId(
+  promptTemplate: string,
+  options: { translateTargetLanguage?: string } = {}
+): QuickActionId {
   const normalizedPrompt = promptTemplate.trim();
   if (!normalizedPrompt) {
     return DEFAULT_QUICK_ACTION_ID;
   }
 
-  return QUICK_ACTIONS.find((preset) => preset.prompt === normalizedPrompt)?.id ?? 'custom';
+  if (
+    normalizedPrompt ===
+    buildTranslatePrompt(options.translateTargetLanguage ?? DEFAULT_TRANSLATE_TARGET_LANGUAGE)
+  ) {
+    return 'translate';
+  }
+
+  return QUICK_ACTIONS.find((preset) => preset.id !== 'translate' && preset.prompt === normalizedPrompt)?.id ?? 'custom';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   quickActionId: DEFAULT_QUICK_ACTION_ID,
   promptTemplate: DEFAULT_PROMPT_TEMPLATE,
+  translateTargetLanguage: DEFAULT_TRANSLATE_TARGET_LANGUAGE,
   shortcut: DEFAULT_SHORTCUT,
   widgetPositions: {},
   resultWindowSize: {

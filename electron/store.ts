@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   type AppSettings,
   HISTORY_LIMIT,
+  normalizeTranslateTargetLanguage,
   type HistoryEntry,
   type Point,
   type QuickActionId,
@@ -15,6 +16,7 @@ import {
 export interface LoadedSettings {
   quickActionId?: QuickActionId;
   promptTemplate?: string;
+  translateTargetLanguage?: string;
   shortcut?: string;
   widgetPositions: WidgetPositionMap;
   resultWindowSize?: Size;
@@ -108,6 +110,10 @@ function sanitizeSettings(value: unknown): LoadedSettings {
     promptTemplate:
       typeof raw.promptTemplate === 'string' && raw.promptTemplate.trim()
         ? raw.promptTemplate.trim()
+        : undefined,
+    translateTargetLanguage:
+      typeof raw.translateTargetLanguage === 'string'
+        ? normalizeTranslateTargetLanguage(raw.translateTargetLanguage)
         : undefined,
     shortcut:
       typeof raw.shortcut === 'string' && raw.shortcut.trim()
