@@ -152,6 +152,8 @@ export interface DesktopAssistantApi {
   cancelSelection: () => Promise<void>;
   getResult: () => Promise<AnalysisResult | null>;
   onResult: (listener: (result: AnalysisResult | null) => void) => () => void;
+  getResultOverflowEnabled: () => Promise<boolean>;
+  onResultOverflowEnabled: (listener: (enabled: boolean) => void) => () => void;
   getResultStream: () => Promise<ResultStreamState | null>;
   onResultStream: (listener: (result: ResultStreamState | null) => void) => () => void;
   reportResultLayoutHeight: (height: number) => void;

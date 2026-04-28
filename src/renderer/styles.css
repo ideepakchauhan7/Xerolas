@@ -658,9 +658,13 @@ button {
 .result-body-copy {
   height: 100%;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   color: var(--text-soft);
   user-select: text;
+}
+
+.result-body-copy.is-scrollable {
+  overflow: auto;
 }
 
 .result-body-copy--minimal {

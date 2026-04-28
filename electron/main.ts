@@ -122,6 +122,7 @@ let currentCapturePerfSession: PerfSession | null = null;
 let widgetShownPerfLogged = false;
 let resultWindowAutoResizeEnabled = false;
 let pendingFinalResultLayoutFit = false;
+let resultOverflowEnabled = false;
 let settingResultWindowBounds = false;
 const SESSION_REFRESH_BUFFER_MS = 60_000;
 
@@ -430,6 +431,21 @@ function broadcastResultStream(): void {
     .forEach((window) => window.webContents.send('result:stream', currentResultStream));
 }
 
+function broadcastResultOverflowState(): void {
+  [appWindows.result]
+    .filter((window): window is BrowserWindow => Boolean(window && !window.isDestroyed()))
+    .forEach((window) => window.webContents.send('result:overflow:update', resultOverflowEnabled));
+}
+
+function setResultOverflowEnabled(enabled: boolean): void {
+  if (resultOverflowEnabled === enabled) {
+    return;
+  }
+
+  resultOverflowEnabled = enabled;
+  broadcastResultOverflowState();
+}
+
 function pushResultStreamState(nextState: ResultStreamState | null): void {
   currentResultStream = nextState;
   broadcastResultStream();
@@ -460,6 +476,7 @@ async function clearActiveResultState(options: { hideWindow?: boolean } = {}): P
   latestAnalysis = null;
   resultWindowAutoResizeEnabled = false;
   pendingFinalResultLayoutFit = false;
+  setResultOverflowEnabled(false);
   broadcastActiveResult();
   pushResultStreamState(null);
   if (options.hideWindow !== false) {
@@ -796,7 +813,7 @@ function estimateAutoResultWindowSize(
   selection: SelectionPayload,
   text: string,
   options: { groundingUsed?: boolean; contentHeight?: number } = {}
-): Size {
+): { size: Size; heightClamped: boolean } {
   const display = screen.getDisplayMatching({
     x: selection.absoluteBounds.x,
     y: selection.absoluteBounds.y,
@@ -808,15 +825,18 @@ function estimateAutoResultWindowSize(
   const width = Math.max(340, Math.min(500, Math.round(selection.absoluteBounds.width * 0.2) + 104));
   const groundingHeight = options.groundingUsed ? 68 : 0;
   const measuredContentHeight = options.contentHeight ? Math.ceil(options.contentHeight) : 0;
-  const height = Math.max(
+  const unclampedHeight = Math.max(
     RESULT_MIN_SIZE.height,
-    Math.min(
-      Math.round(display.workArea.height * 0.68),
-      Math.max(measuredContentHeight, 166 + estimatedLines * 18 + groundingHeight)
-    )
+    Math.max(measuredContentHeight, 166 + estimatedLines * 18 + groundingHeight)
   );
+  const maxHeight = Math.round(display.workArea.height * 0.68);
+  const height = Math.min(maxHeight, unclampedHeight);
+  const size = clampResultWindowSize(display, { width, height });
 
-  return clampResultWindowSize(display, { width, height });
+  return {
+    size,
+    heightClamped: unclampedHeight > maxHeight || size.height < unclampedHeight
+  };
 }
 
 function maybeAutoResizeResultWindow(
@@ -833,7 +853,8 @@ function maybeAutoResizeResultWindow(
     return;
   }
 
-  const nextSize = estimateAutoResultWindowSize(selection, text, options);
+  const { size: nextSize, heightClamped } = estimateAutoResultWindowSize(selection, text, options);
+  setResultOverflowEnabled(heightClamped);
   const nextBounds = computeResultBounds(selection.absoluteBounds, nextSize);
   const currentBounds = resultWindow.getBounds();
   if (
@@ -888,7 +909,7 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
   const initialBounds = initialSelection
     ? computeResultBounds(
         initialSelection.absoluteBounds,
-        currentResultStream ? estimateAutoResultWindowSize(initialSelection, currentResultStream.text) : undefined
+        currentResultStream ? estimateAutoResultWindowSize(initialSelection, currentResultStream.text).size : undefined
       )
     : {
         x: activeDisplay.workArea.x + activeDisplay.workArea.width - initialSize.width - 16,
@@ -961,6 +982,7 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
 
   await loadPage(resultWindow, 'result');
   appWindows.result = resultWindow;
+  broadcastResultOverflowState();
   return resultWindow;
 }
 
@@ -1430,7 +1452,7 @@ async function analyzeExistingImage(
   await showResultWindow({
     reposition: options.repositionResult,
     selection,
-    preferredSize: estimateAutoResultWindowSize(selection, ''),
+    preferredSize: estimateAutoResultWindowSize(selection, '').size,
     clearStream: false
   });
 
@@ -1536,7 +1558,7 @@ async function analyzeExistingImage(
     reposition: true,
     preferredSize: estimateAutoResultWindowSize(selection, analysis.text, {
       groundingUsed: analysis.groundingUsed
-    })
+    }).size
   });
   broadcastResultStream();
   broadcastState();
@@ -1792,6 +1814,7 @@ function installIpcHandlers(): void {
     await rerunLatestAnalysis(quickActionId);
   });
   ipcMain.handle('result:get', () => latestAnalysis);
+  ipcMain.handle('result:overflow:get', () => resultOverflowEnabled);
   ipcMain.handle('result:stream:get', () => currentResultStream);
   ipcMain.on('result:layout-height', (_event, contentHeight: number) => {
     handleResultLayoutHeight(contentHeight);

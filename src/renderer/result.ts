@@ -18,12 +18,17 @@ const sourcesList = document.getElementById('result-sources-list') as HTMLUListE
 
 let currentResult: AnalysisResult | null = null;
 let currentStream: ResultStreamState | null = null;
+let resultOverflowEnabled = false;
 let typingTimer: number | null = null;
 let layoutReportFrame: number | null = null;
 let displayedStreamText = '';
 let targetStreamText = '';
 
 const VISIBLE_ACTIONS: QuickActionId[] = ['describe', 'code', 'translate', 'summarize', 'ask'];
+
+function applyOverflowState(): void {
+  resultText.classList.toggle('is-scrollable', resultOverflowEnabled);
+}
 
 const ACTION_ICONS: Record<QuickActionId, string> = {
   describe: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.85 5.15L19 10l-5.15 1.85L12 17l-1.85-5.15L5 10l5.15-1.85L12 3Z"/></svg>',
@@ -127,6 +132,11 @@ function clearGroundingInfo(): void {
   sourcesList.innerHTML = '';
 }
 
+function setResultOverflowState(enabled: boolean): void {
+  resultOverflowEnabled = enabled;
+  applyOverflowState();
+}
+
 function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): void {
   groundingBadge.hidden = !groundingUsed;
 
@@ -168,6 +178,7 @@ function renderStreamBody(): void {
   resultText.innerHTML = '';
   resultText.style.whiteSpace = 'pre-wrap';
   resultText.classList.add('is-streaming');
+  applyOverflowState();
 
   const streamCopy = document.createElement('p');
   const suffix = currentStream && currentStream.status !== 'error' ? '▍' : '';
@@ -238,6 +249,7 @@ function renderStructuredText(text: string): void {
   resultText.innerHTML = '';
   resultText.style.whiteSpace = '';
   resultText.classList.remove('is-streaming');
+  applyOverflowState();
   const lines = text.split(/\r?\n/);
   let index = 0;
 
@@ -344,6 +356,10 @@ window.addEventListener('keydown', async (event) => {
   }
 });
 
+window.desktopAssistant.onResultOverflowEnabled((enabled) => {
+  setResultOverflowState(enabled);
+});
+
 window.desktopAssistant.onResult((result) => {
   currentResult = result;
   if (currentStream) {
@@ -372,8 +388,13 @@ window.desktopAssistant.onResultStream((streamState) => {
   renderEmptyState();
 });
 
-Promise.all([window.desktopAssistant.getResult(), window.desktopAssistant.getResultStream()])
-  .then(([result, streamState]) => {
+Promise.all([
+  window.desktopAssistant.getResult(),
+  window.desktopAssistant.getResultStream(),
+  window.desktopAssistant.getResultOverflowEnabled()
+])
+  .then(([result, streamState, overflowEnabled]) => {
+    setResultOverflowState(overflowEnabled);
     currentResult = result;
 
     if (streamState) {
