@@ -20,9 +20,12 @@ import {
   type AppRuntimeState,
   type AppSettings,
   DEFAULT_SETTINGS,
+  DEFAULT_TRANSLATE_TARGET_LANGUAGE,
   type DisplaySnapshot,
   getQuickActionById,
   getQuickActionLabel,
+  getQuickActionPrompt,
+  normalizeTranslateTargetLanguage,
   HISTORY_LIMIT,
   type HistoryEntry,
   type HistoryViewModel,
@@ -82,7 +85,7 @@ const LEGACY_DESCRIBE_PROMPTS = new Set([
   'Describe what is shown in this screen region and highlight the most actionable details.'
 ]);
 const LEGACY_CODE_DEFAULT_PROMPTS = new Set([
-  getQuickActionById('code')?.prompt ?? ''
+  getQuickActionPrompt('code') ?? ''
 ]);
 
 const appWindows = {
@@ -1414,7 +1417,11 @@ function resolvePromptTemplateForQuickAction(
   quickActionId: QuickActionId,
   fallbackPromptTemplate: string
 ): string {
-  return getQuickActionById(quickActionId)?.prompt ?? fallbackPromptTemplate;
+  return (
+    getQuickActionPrompt(quickActionId, {
+      translateTargetLanguage: settings.translateTargetLanguage
+    }) ?? fallbackPromptTemplate
+  );
 }
 
 function toPngBytes(imageDataUrl: string): Uint8Array {
@@ -1716,27 +1723,55 @@ function registerShortcut(nextShortcut: string): boolean {
 async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettingsResult> {
   const previousQuickActionId = settings.quickActionId;
   const trimmedPromptTemplate = patch.promptTemplate?.trim();
+  const nextTranslateTargetLanguage =
+    patch.translateTargetLanguage !== undefined
+      ? normalizeTranslateTargetLanguage(patch.translateTargetLanguage)
+      : settings.translateTargetLanguage;
   const requestedQuickActionId =
     patch.quickActionId !== undefined
       ? patch.quickActionId
       : patch.promptTemplate !== undefined
-        ? resolveQuickActionId(trimmedPromptTemplate || settings.promptTemplate)
+        ? resolveQuickActionId(trimmedPromptTemplate || settings.promptTemplate, {
+            translateTargetLanguage: nextTranslateTargetLanguage
+          })
         : settings.quickActionId;
-  const presetPrompt = getQuickActionById(requestedQuickActionId)?.prompt;
+  const presetPrompt = getQuickActionPrompt(requestedQuickActionId, {
+    translateTargetLanguage: nextTranslateTargetLanguage
+  });
+  const previousTranslatePrompt = getQuickActionPrompt('translate', {
+    translateTargetLanguage: settings.translateTargetLanguage
+  });
+  const shouldRefreshTranslatePromptFromLanguageChange =
+    patch.translateTargetLanguage !== undefined &&
+    patch.promptTemplate === undefined &&
+    patch.quickActionId === undefined &&
+    settings.quickActionId === 'translate' &&
+    settings.promptTemplate === previousTranslatePrompt;
+  const shouldRefreshTranslatePromptFromSubmittedPreset =
+    patch.translateTargetLanguage !== undefined &&
+    patch.promptTemplate !== undefined &&
+    trimmedPromptTemplate === previousTranslatePrompt;
   const nextPromptTemplate =
     patch.promptTemplate !== undefined
-      ? trimmedPromptTemplate || presetPrompt || DEFAULT_SETTINGS.promptTemplate
+      ? shouldRefreshTranslatePromptFromSubmittedPreset
+        ? presetPrompt || settings.promptTemplate
+        : trimmedPromptTemplate || presetPrompt || DEFAULT_SETTINGS.promptTemplate
       : patch.quickActionId !== undefined
         ? presetPrompt || settings.promptTemplate
-        : settings.promptTemplate;
+        : shouldRefreshTranslatePromptFromLanguageChange
+          ? presetPrompt || settings.promptTemplate
+          : settings.promptTemplate;
   const normalizedQuickActionId: QuickActionId =
     patch.promptTemplate !== undefined
-      ? resolveQuickActionId(nextPromptTemplate)
+      ? resolveQuickActionId(nextPromptTemplate, {
+          translateTargetLanguage: nextTranslateTargetLanguage
+        })
       : requestedQuickActionId;
   const nextSettings: AppSettings = {
     ...settings,
     quickActionId: normalizedQuickActionId,
     promptTemplate: nextPromptTemplate,
+    translateTargetLanguage: nextTranslateTargetLanguage,
     shortcut: patch.shortcut !== undefined ? patch.shortcut.trim() : settings.shortcut,
     widgetPositions: patch.widgetPositions ?? settings.widgetPositions
   };
@@ -1910,6 +1945,9 @@ app.whenReady().then(async () => {
 
   migrateLegacyUserData();
   const loadedSettings = loadSettings();
+  const initialTranslateTargetLanguage = normalizeTranslateTargetLanguage(
+    loadedSettings.translateTargetLanguage ?? DEFAULT_TRANSLATE_TARGET_LANGUAGE
+  );
   const rawInitialPromptTemplate =
     loadedSettings.promptTemplate ??
     appManagedDefaults.promptTemplate ??
@@ -1922,7 +1960,9 @@ app.whenReady().then(async () => {
   const quickActionId =
     migratedQuickActionId ??
     appManagedDefaults.quickActionId ??
-    resolveQuickActionId(rawInitialPromptTemplate);
+    resolveQuickActionId(rawInitialPromptTemplate, {
+      translateTargetLanguage: initialTranslateTargetLanguage
+    });
   const shouldResetToDefaultDescribePrompt =
     quickActionId === 'describe' &&
     (LEGACY_DESCRIBE_PROMPTS.has(rawInitialPromptTemplate) ||
@@ -1945,6 +1985,7 @@ app.whenReady().then(async () => {
     ...loadedSettings,
     quickActionId,
     promptTemplate: initialPromptTemplate,
+    translateTargetLanguage: initialTranslateTargetLanguage,
     shortcut,
     widgetPositions: loadedSettings.widgetPositions,
     resultWindowSize: migratedResultWindowSize
@@ -1954,6 +1995,8 @@ app.whenReady().then(async () => {
     loadedSettings.shortcut !== undefined && loadedSettings.shortcut !== shortcut ||
     loadedSettings.quickActionId !== undefined && loadedSettings.quickActionId !== quickActionId ||
     loadedSettings.promptTemplate !== undefined && loadedSettings.promptTemplate !== initialPromptTemplate ||
+    loadedSettings.translateTargetLanguage !== undefined && loadedSettings.translateTargetLanguage !== initialTranslateTargetLanguage ||
+    loadedSettings.translateTargetLanguage === undefined ||
     !loadedSettings.resultWindowSize ||
     loadedSettings.resultWindowSize.width < DEFAULT_SETTINGS.resultWindowSize.width ||
     loadedSettings.resultWindowSize.height < DEFAULT_SETTINGS.resultWindowSize.height

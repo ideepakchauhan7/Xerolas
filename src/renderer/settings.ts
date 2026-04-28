@@ -1,6 +1,9 @@
 import {
   QUICK_ACTIONS,
   getQuickActionById,
+  getQuickActionPrompt,
+  normalizeTranslateTargetLanguage,
+  resolveQuickActionId,
   type QuickActionId,
   type SaveSettingsInput,
   type SettingsViewModel
@@ -9,6 +12,7 @@ import {
 const form = document.getElementById('settings-form') as HTMLFormElement;
 const backendInfo = document.getElementById('backend-info') as HTMLSpanElement;
 const shortcutInput = document.getElementById('shortcut') as HTMLInputElement;
+const translateTargetLanguageInput = document.getElementById('translate-target-language') as HTMLInputElement;
 const promptTemplateInput = document.getElementById('prompt-template') as HTMLTextAreaElement;
 const statusText = document.getElementById('settings-status-text') as HTMLSpanElement;
 const closeSettingsButton = document.getElementById('close-settings') as HTMLButtonElement;
@@ -18,6 +22,11 @@ const summaryShortcut = document.getElementById('summary-shortcut') as HTMLHeadi
 const summaryAction = document.getElementById('summary-action') as HTMLHeadingElement;
 
 let currentQuickActionId: QuickActionId = 'describe';
+let currentTranslateTargetLanguage = 'English';
+
+function getCurrentTranslatePresetPrompt(targetLanguage = currentTranslateTargetLanguage): string {
+  return getQuickActionPrompt('translate', { translateTargetLanguage: targetLanguage }) ?? '';
+}
 
 function renderQuickActionButtons(activeQuickActionId: QuickActionId): void {
   quickActionPresets.innerHTML = '';
@@ -29,7 +38,10 @@ function renderQuickActionButtons(activeQuickActionId: QuickActionId): void {
     button.textContent = action.id === 'describe' ? 'AI Overview' : action.label;
     button.addEventListener('click', () => {
       currentQuickActionId = action.id;
-      promptTemplateInput.value = action.prompt;
+      promptTemplateInput.value =
+        getQuickActionPrompt(action.id, {
+          translateTargetLanguage: currentTranslateTargetLanguage
+        }) ?? action.prompt;
       renderQuickActionButtons(currentQuickActionId);
       summaryAction.textContent = action.id === 'describe' ? 'AI Overview' : action.label;
     });
@@ -51,7 +63,9 @@ function summarizeBackend(viewModel: SettingsViewModel): string {
 
 function renderSettings(viewModel: SettingsViewModel): void {
   currentQuickActionId = viewModel.settings.quickActionId;
+  currentTranslateTargetLanguage = normalizeTranslateTargetLanguage(viewModel.settings.translateTargetLanguage);
   shortcutInput.value = viewModel.settings.shortcut;
+  translateTargetLanguageInput.value = currentTranslateTargetLanguage;
   promptTemplateInput.value = viewModel.settings.promptTemplate;
   renderQuickActionButtons(currentQuickActionId);
 
@@ -75,9 +89,16 @@ function renderSettings(viewModel: SettingsViewModel): void {
     : 'Settings saved, but the shortcut could not be registered.';
 }
 
-function resolveQuickActionId(promptTemplate: string): QuickActionId {
-  return QUICK_ACTIONS.find((preset) => preset.prompt === promptTemplate)?.id ?? currentQuickActionId;
-}
+translateTargetLanguageInput.addEventListener('input', () => {
+  const nextTranslateTargetLanguage = normalizeTranslateTargetLanguage(translateTargetLanguageInput.value);
+  const previousTranslatePrompt = getCurrentTranslatePresetPrompt();
+
+  if (currentQuickActionId === 'translate' && promptTemplateInput.value.trim() === previousTranslatePrompt) {
+    promptTemplateInput.value = getCurrentTranslatePresetPrompt(nextTranslateTargetLanguage);
+  }
+
+  currentTranslateTargetLanguage = nextTranslateTargetLanguage;
+});
 
 closeSettingsButton.addEventListener('click', () => {
   window.close();
@@ -87,11 +108,19 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const promptTemplate = promptTemplateInput.value.trim();
-  const nextQuickActionId = resolveQuickActionId(promptTemplate);
+  const translateTargetLanguage = normalizeTranslateTargetLanguage(translateTargetLanguageInput.value);
+  const nextQuickActionId =
+    currentQuickActionId === 'translate' &&
+    promptTemplate === getCurrentTranslatePresetPrompt(translateTargetLanguage)
+      ? 'translate'
+      : resolveQuickActionId(promptTemplate, {
+          translateTargetLanguage
+        });
   const payload: SaveSettingsInput = {
     shortcut: shortcutInput.value.trim(),
     quickActionId: nextQuickActionId,
-    promptTemplate
+    promptTemplate,
+    translateTargetLanguage
   };
 
   const response = await window.desktopAssistant.saveSettings(payload);
