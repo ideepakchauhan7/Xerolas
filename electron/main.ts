@@ -121,6 +121,7 @@ const appPerfSession = createPerfSession('app');
 let currentCapturePerfSession: PerfSession | null = null;
 let widgetShownPerfLogged = false;
 let resultWindowAutoResizeEnabled = false;
+let pendingFinalResultLayoutFit = false;
 let settingResultWindowBounds = false;
 const SESSION_REFRESH_BUFFER_MS = 60_000;
 
@@ -458,6 +459,7 @@ function isCaptureSessionActive(captureSessionId: number | null | undefined): bo
 async function clearActiveResultState(options: { hideWindow?: boolean } = {}): Promise<void> {
   latestAnalysis = null;
   resultWindowAutoResizeEnabled = false;
+  pendingFinalResultLayoutFit = false;
   broadcastActiveResult();
   pushResultStreamState(null);
   if (options.hideWindow !== false) {
@@ -793,7 +795,7 @@ function computeResultBounds(selection: Rect, preferredSize?: Size): Rect {
 function estimateAutoResultWindowSize(
   selection: SelectionPayload,
   text: string,
-  options: { groundingUsed?: boolean } = {}
+  options: { groundingUsed?: boolean; contentHeight?: number } = {}
 ): Size {
   const display = screen.getDisplayMatching({
     x: selection.absoluteBounds.x,
@@ -805,15 +807,23 @@ function estimateAutoResultWindowSize(
   const estimatedLines = Math.max(3, Math.ceil(Math.max(visibleLength, 48) / 54));
   const width = Math.max(340, Math.min(500, Math.round(selection.absoluteBounds.width * 0.2) + 104));
   const groundingHeight = options.groundingUsed ? 68 : 0;
+  const measuredContentHeight = options.contentHeight ? Math.ceil(options.contentHeight) : 0;
   const height = Math.max(
     RESULT_MIN_SIZE.height,
-    Math.min(Math.round(display.workArea.height * 0.68), 166 + estimatedLines * 18 + groundingHeight)
+    Math.min(
+      Math.round(display.workArea.height * 0.68),
+      Math.max(measuredContentHeight, 166 + estimatedLines * 18 + groundingHeight)
+    )
   );
 
   return clampResultWindowSize(display, { width, height });
 }
 
-function maybeAutoResizeResultWindow(text: string, selection: SelectionPayload): void {
+function maybeAutoResizeResultWindow(
+  text: string,
+  selection: SelectionPayload,
+  options: { groundingUsed?: boolean; contentHeight?: number } = {}
+): void {
   if (!resultWindowAutoResizeEnabled || !appWindows.result || appWindows.result.isDestroyed()) {
     return;
   }
@@ -823,7 +833,7 @@ function maybeAutoResizeResultWindow(text: string, selection: SelectionPayload):
     return;
   }
 
-  const nextSize = estimateAutoResultWindowSize(selection, text);
+  const nextSize = estimateAutoResultWindowSize(selection, text, options);
   const nextBounds = computeResultBounds(selection.absoluteBounds, nextSize);
   const currentBounds = resultWindow.getBounds();
   if (
@@ -841,6 +851,30 @@ function maybeAutoResizeResultWindow(text: string, selection: SelectionPayload):
   } finally {
     settingResultWindowBounds = false;
   }
+}
+
+function handleResultLayoutHeight(contentHeight: number): void {
+  if (!Number.isFinite(contentHeight) || contentHeight <= 0) {
+    return;
+  }
+
+  if (currentResultStream?.selection) {
+    maybeAutoResizeResultWindow(currentResultStream.text, currentResultStream.selection, {
+      contentHeight
+    });
+    return;
+  }
+
+  if (!pendingFinalResultLayoutFit || !latestAnalysis) {
+    return;
+  }
+
+  maybeAutoResizeResultWindow(latestAnalysis.text, latestAnalysis.selection, {
+    contentHeight,
+    groundingUsed: latestAnalysis.groundingUsed
+  });
+  pendingFinalResultLayoutFit = false;
+  resultWindowAutoResizeEnabled = false;
 }
 
 async function ensureResultWindow(): Promise<BrowserWindow> {
@@ -918,6 +952,7 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
     }
 
     resultWindowAutoResizeEnabled = false;
+    pendingFinalResultLayoutFit = false;
     persistResultWindowSize({
       width: resultWindow.getBounds().width,
       height: resultWindow.getBounds().height
@@ -1439,7 +1474,6 @@ async function analyzeExistingImage(
             message: null,
             selection
           });
-          maybeAutoResizeResultWindow(text, selection);
         }
       }
     );
@@ -1494,7 +1528,8 @@ async function analyzeExistingImage(
   appendHistoryEntry(latestAnalysis);
   clearError();
   currentResultStream = null;
-  resultWindowAutoResizeEnabled = false;
+  pendingFinalResultLayoutFit = true;
+  resultWindowAutoResizeEnabled = true;
   await showResultWindow({
     selection,
     clearStream: true,
@@ -1758,6 +1793,9 @@ function installIpcHandlers(): void {
   });
   ipcMain.handle('result:get', () => latestAnalysis);
   ipcMain.handle('result:stream:get', () => currentResultStream);
+  ipcMain.on('result:layout-height', (_event, contentHeight: number) => {
+    handleResultLayoutHeight(contentHeight);
+  });
   ipcMain.handle('history:get', () => buildHistoryViewModel());
   ipcMain.handle('history:select', async (_event, id: string) => {
     await showHistoryEntry(id);
