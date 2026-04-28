@@ -154,6 +154,7 @@ export interface DesktopAssistantApi {
   onResult: (listener: (result: AnalysisResult | null) => void) => () => void;
   getResultStream: () => Promise<ResultStreamState | null>;
   onResultStream: (listener: (result: ResultStreamState | null) => void) => () => void;
+  reportResultLayoutHeight: (height: number) => void;
   getHistory: () => Promise<HistoryViewModel>;
   onHistory: (listener: (history: HistoryViewModel) => void) => () => void;
   selectHistoryEntry: (id: string) => Promise<void>;

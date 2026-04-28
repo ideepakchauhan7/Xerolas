@@ -49,6 +49,9 @@ const api: DesktopAssistantApi = {
     ipcRenderer.invoke('result:stream:get') as Promise<ResultStreamState | null>,
   onResultStream: (listener) =>
     subscribe<ResultStreamState | null>('result:stream', listener),
+  reportResultLayoutHeight: (height: number) => {
+    ipcRenderer.send('result:layout-height', height);
+  },
   getHistory: () => ipcRenderer.invoke('history:get') as Promise<HistoryViewModel>,
   onHistory: (listener) => subscribe<HistoryViewModel>('history:update', listener),
   selectHistoryEntry: (id) => ipcRenderer.invoke('history:select', id) as Promise<void>,

@@ -6,6 +6,10 @@ import {
   type SourceLink
 } from '../shared/types';
 
+const resultPage = document.body as HTMLBodyElement;
+const resultCard = document.querySelector('.result-card--minimal') as HTMLElement;
+const resultShell = document.querySelector('.result-minimal-shell') as HTMLElement;
+const resultTopbar = document.querySelector('.result-topbar') as HTMLDivElement;
 const resultText = document.getElementById('result-text') as HTMLDivElement;
 const quickActions = document.getElementById('quick-actions') as HTMLDivElement;
 const groundingBadge = document.getElementById('grounding-badge') as HTMLDivElement;
@@ -15,6 +19,7 @@ const sourcesList = document.getElementById('result-sources-list') as HTMLUListE
 let currentResult: AnalysisResult | null = null;
 let currentStream: ResultStreamState | null = null;
 let typingTimer: number | null = null;
+let layoutReportFrame: number | null = null;
 let displayedStreamText = '';
 let targetStreamText = '';
 
@@ -87,6 +92,35 @@ function stopTypewriter(): void {
   }
 }
 
+function scheduleLayoutHeightReport(): void {
+  if (layoutReportFrame !== null) {
+    return;
+  }
+
+  layoutReportFrame = window.requestAnimationFrame(() => {
+    layoutReportFrame = null;
+
+    const pageStyles = window.getComputedStyle(resultPage);
+    const cardStyles = window.getComputedStyle(resultCard);
+    const shellStyles = window.getComputedStyle(resultShell);
+    const pagePadding = parseFloat(pageStyles.paddingTop) + parseFloat(pageStyles.paddingBottom);
+    const cardPadding = parseFloat(cardStyles.paddingTop) + parseFloat(cardStyles.paddingBottom);
+    const shellGap = parseFloat(shellStyles.rowGap || shellStyles.gap || '0');
+    const sectionCount = sourcesSection.hidden ? 2 : 3;
+    const desiredHeight = Math.ceil(
+      pagePadding +
+        cardPadding +
+        resultTopbar.getBoundingClientRect().height +
+        resultText.scrollHeight +
+        (sourcesSection.hidden ? 0 : sourcesSection.scrollHeight) +
+        shellGap * Math.max(0, sectionCount - 1) +
+        2
+    );
+
+    window.desktopAssistant.reportResultLayoutHeight(desiredHeight);
+  });
+}
+
 function clearGroundingInfo(): void {
   groundingBadge.hidden = true;
   sourcesSection.hidden = true;
@@ -99,6 +133,7 @@ function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): voi
   sourcesList.innerHTML = '';
   if (!sources.length) {
     sourcesSection.hidden = true;
+    scheduleLayoutHeightReport();
     return;
   }
 
@@ -125,6 +160,8 @@ function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): voi
     item.appendChild(host);
     sourcesList.appendChild(item);
   });
+
+  scheduleLayoutHeightReport();
 }
 
 function renderStreamBody(): void {
@@ -136,6 +173,7 @@ function renderStreamBody(): void {
   const suffix = currentStream && currentStream.status !== 'error' ? '▍' : '';
   streamCopy.textContent = `${displayedStreamText}${suffix}`;
   resultText.appendChild(streamCopy);
+  scheduleLayoutHeightReport();
 }
 
 function tickTypewriter(): void {
@@ -261,6 +299,8 @@ function renderStructuredText(text: string): void {
   if (!resultText.childElementCount) {
     appendParagraph(resultText, text);
   }
+
+  scheduleLayoutHeightReport();
 }
 
 function renderResult(result: AnalysisResult): void {
@@ -295,6 +335,7 @@ function renderEmptyState(): void {
   clearGroundingInfo();
   appendParagraph(resultText, 'Capture any part of your screen and Xerolas will show the answer here.');
   renderQuickActions('describe');
+  scheduleLayoutHeightReport();
 }
 
 window.addEventListener('keydown', async (event) => {
