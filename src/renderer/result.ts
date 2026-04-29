@@ -1,6 +1,7 @@
 import {
   QUICK_ACTIONS,
   type AnalysisResult,
+  type AskQuestionState,
   type QuickActionId,
   type ResultStreamState,
   type SourceLink
@@ -15,14 +16,26 @@ const quickActions = document.getElementById('quick-actions') as HTMLDivElement;
 const groundingBadge = document.getElementById('grounding-badge') as HTMLDivElement;
 const sourcesSection = document.getElementById('result-sources') as HTMLElement;
 const sourcesList = document.getElementById('result-sources-list') as HTMLUListElement;
+const askQuestionComposer = document.getElementById('ask-question-composer') as HTMLElement;
+const askQuestionInput = document.getElementById('ask-question-input') as HTMLTextAreaElement;
+const askQuestionHelper = document.getElementById('ask-question-helper') as HTMLParagraphElement;
+const askQuestionClose = document.getElementById('ask-question-close') as HTMLButtonElement;
+const askQuestionSend = document.getElementById('ask-question-send') as HTMLButtonElement;
 
 let currentResult: AnalysisResult | null = null;
 let currentStream: ResultStreamState | null = null;
+let askQuestionState: AskQuestionState = {
+  questionText: '',
+  isQuestionComposerOpen: false,
+  isSubmitting: false,
+  hasCaptureContext: false
+};
 let resultOverflowEnabled = false;
 let typingTimer: number | null = null;
 let layoutReportFrame: number | null = null;
 let displayedStreamText = '';
 let targetStreamText = '';
+let pendingAskQuestionFocus = false;
 
 const VISIBLE_ACTIONS: QuickActionId[] = ['describe', 'code', 'translate', 'summarize', 'ask'];
 
@@ -111,13 +124,16 @@ function scheduleLayoutHeightReport(): void {
     const pagePadding = parseFloat(pageStyles.paddingTop) + parseFloat(pageStyles.paddingBottom);
     const cardPadding = parseFloat(cardStyles.paddingTop) + parseFloat(cardStyles.paddingBottom);
     const shellGap = parseFloat(shellStyles.rowGap || shellStyles.gap || '0');
-    const sectionCount = sourcesSection.hidden ? 2 : 3;
+    const composerHeight = askQuestionComposer.hidden ? 0 : askQuestionComposer.scrollHeight;
+    const sourcesHeight = sourcesSection.hidden ? 0 : sourcesSection.scrollHeight;
+    const sectionCount = 2 + (askQuestionComposer.hidden ? 0 : 1) + (sourcesSection.hidden ? 0 : 1);
     const desiredHeight = Math.ceil(
       pagePadding +
         cardPadding +
         resultTopbar.getBoundingClientRect().height +
+        composerHeight +
         resultText.scrollHeight +
-        (sourcesSection.hidden ? 0 : sourcesSection.scrollHeight) +
+        sourcesHeight +
         shellGap * Math.max(0, sectionCount - 1) +
         2
     );
@@ -213,6 +229,47 @@ function scheduleTypewriter(): void {
   typingTimer = window.setTimeout(tickTypewriter, 16);
 }
 
+function getActiveQuickActionId(): QuickActionId {
+  if (askQuestionState.isQuestionComposerOpen) {
+    return 'ask';
+  }
+
+  return currentStream?.quickActionId ?? currentResult?.quickActionId ?? 'describe';
+}
+
+function maybeFocusAskQuestionInput(): void {
+  if (!pendingAskQuestionFocus || askQuestionComposer.hidden || askQuestionState.isSubmitting) {
+    return;
+  }
+
+  pendingAskQuestionFocus = false;
+  window.requestAnimationFrame(() => {
+    askQuestionInput.focus();
+    const caretPosition = askQuestionInput.value.length;
+    askQuestionInput.setSelectionRange(caretPosition, caretPosition);
+  });
+}
+
+function renderAskQuestionComposer(): void {
+  const shouldShow = askQuestionState.isQuestionComposerOpen && askQuestionState.hasCaptureContext;
+  askQuestionComposer.hidden = !shouldShow;
+  resultCard.classList.toggle('has-ask-composer', shouldShow);
+
+  if (askQuestionInput.value !== askQuestionState.questionText) {
+    askQuestionInput.value = askQuestionState.questionText;
+  }
+
+  askQuestionInput.disabled = askQuestionState.isSubmitting;
+  askQuestionClose.disabled = askQuestionState.isSubmitting;
+  askQuestionSend.disabled = askQuestionState.isSubmitting || !askQuestionState.questionText.trim();
+  askQuestionHelper.textContent = askQuestionState.isSubmitting
+    ? 'Xerolas is answering based on this capture…'
+    : 'Press Enter to send, Shift+Enter for a new line.';
+
+  maybeFocusAskQuestionInput();
+  scheduleLayoutHeightReport();
+}
+
 function renderQuickActions(activeQuickActionId: QuickActionId | null): void {
   quickActions.innerHTML = '';
 
@@ -231,7 +288,17 @@ function renderQuickActions(activeQuickActionId: QuickActionId | null): void {
     button.innerHTML = ACTION_ICONS[action.id];
     button.disabled = Boolean(currentStream);
     button.addEventListener('click', async () => {
-      if (currentResult) {
+      if (action.id === 'ask') {
+        if (askQuestionState.hasCaptureContext || currentResult || currentStream) {
+          await window.desktopAssistant.openAskQuestionComposer();
+          return;
+        }
+
+        await window.desktopAssistant.requestCapture(action.id);
+        return;
+      }
+
+      if (currentResult || askQuestionState.hasCaptureContext) {
         await window.desktopAssistant.rerunResult(action.id);
         return;
       }
@@ -318,7 +385,8 @@ function renderStructuredText(text: string): void {
 function renderResult(result: AnalysisResult): void {
   currentResult = result;
   currentStream = null;
-  renderQuickActions(result.quickActionId);
+  renderQuickActions(getActiveQuickActionId());
+  renderAskQuestionComposer();
   renderStructuredText(result.text);
   renderGroundingInfo(result.groundingUsed, result.sources);
 }
@@ -326,7 +394,8 @@ function renderResult(result: AnalysisResult): void {
 function renderStreamState(state: ResultStreamState): void {
   currentStream = state;
   clearGroundingInfo();
-  renderQuickActions(state.quickActionId);
+  renderQuickActions(getActiveQuickActionId());
+  renderAskQuestionComposer();
   targetStreamText = state.text;
   if (displayedStreamText.length > targetStreamText.length) {
     displayedStreamText = targetStreamText;
@@ -345,10 +414,44 @@ function renderEmptyState(): void {
   resultText.style.whiteSpace = '';
   resultText.classList.remove('is-streaming');
   clearGroundingInfo();
-  appendParagraph(resultText, 'Capture any part of your screen and Xerolas will show the answer here.');
-  renderQuickActions('describe');
+  appendParagraph(
+    resultText,
+    askQuestionState.hasCaptureContext
+      ? 'Ask a question about this capture and Xerolas will answer from the selected region.'
+      : 'Capture any part of your screen and Xerolas will show the answer here.'
+  );
+  renderQuickActions(getActiveQuickActionId());
+  renderAskQuestionComposer();
   scheduleLayoutHeightReport();
 }
+
+async function submitAskQuestion(): Promise<void> {
+  const questionText = askQuestionInput.value;
+  if (!questionText.trim()) {
+    return;
+  }
+
+  await window.desktopAssistant.submitAskQuestion(questionText);
+}
+
+askQuestionInput.addEventListener('input', () => {
+  void window.desktopAssistant.updateAskQuestionDraft(askQuestionInput.value).catch(console.error);
+});
+
+askQuestionInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    void submitAskQuestion().catch(console.error);
+  }
+});
+
+askQuestionSend.addEventListener('click', () => {
+  void submitAskQuestion().catch(console.error);
+});
+
+askQuestionClose.addEventListener('click', () => {
+  void window.desktopAssistant.closeAskQuestionComposer().catch(console.error);
+});
 
 window.addEventListener('keydown', async (event) => {
   if (event.key === 'Escape') {
@@ -358,6 +461,29 @@ window.addEventListener('keydown', async (event) => {
 
 window.desktopAssistant.onResultOverflowEnabled((enabled) => {
   setResultOverflowState(enabled);
+});
+
+window.desktopAssistant.onAskQuestionState((state) => {
+  const shouldFocus = state.isQuestionComposerOpen && !askQuestionState.isQuestionComposerOpen;
+  askQuestionState = state;
+  if (shouldFocus && !state.isSubmitting) {
+    pendingAskQuestionFocus = true;
+  }
+
+  if (currentStream) {
+    renderQuickActions(getActiveQuickActionId());
+    renderAskQuestionComposer();
+    return;
+  }
+
+  if (currentResult) {
+    renderQuickActions(getActiveQuickActionId());
+    renderAskQuestionComposer();
+    scheduleLayoutHeightReport();
+    return;
+  }
+
+  renderEmptyState();
 });
 
 window.desktopAssistant.onResult((result) => {
@@ -391,11 +517,13 @@ window.desktopAssistant.onResultStream((streamState) => {
 Promise.all([
   window.desktopAssistant.getResult(),
   window.desktopAssistant.getResultStream(),
-  window.desktopAssistant.getResultOverflowEnabled()
+  window.desktopAssistant.getResultOverflowEnabled(),
+  window.desktopAssistant.getAskQuestionState()
 ])
-  .then(([result, streamState, overflowEnabled]) => {
+  .then(([result, streamState, overflowEnabled, initialAskQuestionState]) => {
     setResultOverflowState(overflowEnabled);
     currentResult = result;
+    askQuestionState = initialAskQuestionState;
 
     if (streamState) {
       renderStreamState(streamState);
