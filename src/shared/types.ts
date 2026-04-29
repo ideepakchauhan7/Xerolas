@@ -287,7 +287,7 @@ export function resolveQuickActionId(
     return 'translate';
   }
 
-  return QUICK_ACTIONS.find((preset) => preset.id !== 'translate' && preset.prompt === normalizedPrompt)?.id ?? 'custom';
+  return QUICK_ACTIONS.find((preset) => preset.id !== 'translate' && preset.id !== 'ask' && preset.prompt === normalizedPrompt)?.id ?? 'custom';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
