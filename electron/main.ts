@@ -1588,7 +1588,7 @@ async function analyzeExistingImage(
     message: trimmedQuestion ? 'Xerolas is answering your question…' : 'Xerolas is analyzing this capture…',
     selection
   };
-  resultWindowAutoResizeEnabled = Boolean(options.repositionResult);
+  resultWindowAutoResizeEnabled = true;
   pushResultStreamState(initialStreamState);
   await showResultWindow({
     reposition: options.repositionResult,
@@ -1791,7 +1791,8 @@ async function rerunLatestAnalysis(nextQuickActionId: QuickActionId): Promise<vo
       reusableCaptureContext.selection,
       nextQuickActionId,
       latestAnalysis?.promptTemplate ?? settings.promptTemplate,
-      captureSessionId
+      captureSessionId,
+      { repositionResult: true }
     );
   } catch (error) {
     setError(error);
@@ -1833,7 +1834,7 @@ async function submitAskQuestion(questionText: string): Promise<void> {
       getQuickActionPrompt('ask') ?? settings.promptTemplate,
       captureSessionId,
       {
-        repositionResult: !appWindows.result?.isVisible(),
+        repositionResult: true,
         question: trimmedQuestion
       }
     );

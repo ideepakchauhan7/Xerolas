@@ -36,6 +36,8 @@ const SHARED_GEMINI_INSTRUCTION = [
   'Focus on the main subject inside the selected region.',
   'Ignore browser chrome, toolbars, app frames, and surrounding UI unless they are directly relevant to the user request.',
   'If the capture contains a question, puzzle, article, code block, error, document, or worksheet, solve or explain that content instead of mainly narrating the layout.',
+  'Always combine visual understanding with the available Google Search grounding tool so the answer can use current web context when Gemini can ground it.',
+  'When web grounding returns sources, base current facts on those sources and keep the source attribution available through grounding metadata.',
   'Lead with the most useful answer first, then give short supporting points if needed.',
   'Keep the response concise, grounded in what is visible, and practical.',
   'Use plain text only. Do not use markdown tables, code fences, or bold markers.'
@@ -66,7 +68,7 @@ ${trimmedPrompt}`;
     'User question about this capture:',
     trimmedQuestion,
     '',
-    "Answer the user's question using the captured image as the primary context. If the answer is not visible in the capture, say that briefly instead of guessing."
+    "Answer the user's question using the captured image as the primary context, then verify or enrich the answer with Google Search grounding when available. If the answer is not supported by the capture or grounded web context, say that briefly instead of guessing."
   ].join('\n');
 }
 

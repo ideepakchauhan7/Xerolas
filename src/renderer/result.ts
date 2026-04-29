@@ -230,7 +230,11 @@ function scheduleTypewriter(): void {
 }
 
 function getActiveQuickActionId(): QuickActionId {
-  return currentStream?.quickActionId ?? currentResult?.quickActionId ?? (askQuestionState.isQuestionComposerOpen ? 'ask' : 'describe');
+  if (askQuestionState.isQuestionComposerOpen) {
+    return 'ask';
+  }
+
+  return currentStream?.quickActionId ?? currentResult?.quickActionId ?? 'describe';
 }
 
 function maybeFocusAskQuestionInput(): void {
