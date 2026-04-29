@@ -21,6 +21,28 @@
           <nav id="quick-actions" class="result-mini-actions" aria-label="Result modes"></nav>
           <div id="grounding-badge" class="result-grounding-badge" hidden>Web search used</div>
         </div>
+        <section id="ask-question-composer" class="result-ask-composer" hidden>
+          <label for="ask-question-input" class="result-ask-label">Ask about this capture</label>
+          <textarea
+            id="ask-question-input"
+            class="result-ask-textarea"
+            rows="3"
+            placeholder="Ask a question about the captured content…"
+          ></textarea>
+          <div class="result-ask-footer">
+            <p id="ask-question-helper" class="result-ask-helper">
+              Press Enter to send, Shift+Enter for a new line.
+            </p>
+            <div class="result-ask-actions">
+              <button id="ask-question-close" class="result-ask-button result-ask-button--ghost" type="button">
+                Close
+              </button>
+              <button id="ask-question-send" class="result-ask-button result-ask-button--primary" type="button">
+                Ask
+              </button>
+            </div>
+          </div>
+        </section>
         <article id="result-text" class="result-body-copy result-body-copy--minimal"></article>
         <section id="result-sources" class="result-sources" hidden>
           <h2 class="result-sources-title">Sources</h2>

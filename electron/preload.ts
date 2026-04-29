@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AnalysisResult,
   AppRuntimeState,
+  AskQuestionState,
   DesktopAssistantApi,
   HistoryViewModel,
   OverlayPayload,
@@ -31,6 +32,18 @@ const api: DesktopAssistantApi = {
     ipcRenderer.invoke('capture:start', quickActionId) as Promise<void>,
   rerunResult: (quickActionId: QuickActionId) =>
     ipcRenderer.invoke('result:rerun', quickActionId) as Promise<void>,
+  getAskQuestionState: () =>
+    ipcRenderer.invoke('ask-question:get') as Promise<AskQuestionState>,
+  onAskQuestionState: (listener) =>
+    subscribe<AskQuestionState>('ask-question:update', listener),
+  openAskQuestionComposer: () =>
+    ipcRenderer.invoke('ask-question:open') as Promise<void>,
+  closeAskQuestionComposer: () =>
+    ipcRenderer.invoke('ask-question:close') as Promise<void>,
+  updateAskQuestionDraft: (questionText: string) =>
+    ipcRenderer.invoke('ask-question:update', questionText) as Promise<void>,
+  submitAskQuestion: (questionText: string) =>
+    ipcRenderer.invoke('ask-question:submit', questionText) as Promise<void>,
   toggleResult: () => ipcRenderer.invoke('result:toggle') as Promise<void>,
   collapseResult: () => ipcRenderer.invoke('result:collapse') as Promise<void>,
   minimizeResult: () => ipcRenderer.invoke('result:minimize') as Promise<void>,

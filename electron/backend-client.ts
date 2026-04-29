@@ -67,6 +67,7 @@ export interface AnalyzeImageInput {
   appVersion: string;
   platform: string;
   sessionToken: string;
+  question?: string;
 }
 
 export interface AnalyzeStreamHandlers {
@@ -141,6 +142,9 @@ function buildAnalyzeBody(input: AnalyzeImageInput): FormData {
   body.set('promptTemplate', input.promptTemplate);
   body.set('appVersion', input.appVersion);
   body.set('platform', input.platform);
+  if (input.question?.trim()) {
+    body.set('question', input.question.trim());
+  }
   body.set('image', new Blob([input.imageBytes], { type: 'image/png' }), 'capture.png');
   return body;
 }
