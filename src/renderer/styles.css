@@ -653,6 +653,12 @@ button {
   white-space: nowrap;
 }
 
+.result-grounding-badge[hidden],
+.result-ask-composer[hidden],
+.result-sources[hidden] {
+  display: none !important;
+}
+
 .result-grounding-badge::before {
   content: "";
   width: 8px;
