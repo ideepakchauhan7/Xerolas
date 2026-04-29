@@ -15,6 +15,7 @@ interface JsonRecord {
 interface AnalyzeRequestPayload {
   quickActionId: string;
   promptTemplate: string;
+  question?: string;
   imageMimeType: string;
   imageBase64Data: string;
 }
@@ -87,12 +88,17 @@ async function readAnalyzeRequest(request: Request): Promise<AnalyzeRequestPaylo
       throw new Error('A captured image file is required.');
     }
 
+    const question =
+      typeof formData.get('question') === 'string' && formData.get('question')
+        ? (formData.get('question') as string).trim()
+        : undefined;
     const imageMimeType = image.type?.trim() || 'image/png';
     const imageBase64Data = base64EncodeBytes(new Uint8Array(await image.arrayBuffer()));
 
     return {
       quickActionId,
       promptTemplate,
+      question,
       imageMimeType,
       imageBase64Data
     };
@@ -107,6 +113,8 @@ async function readAnalyzeRequest(request: Request): Promise<AnalyzeRequestPaylo
     typeof body.promptTemplate === 'string' && body.promptTemplate.trim()
       ? body.promptTemplate.trim()
       : 'Answer the most useful question about this selected content. Focus on the main subject, solve or explain the visible content when possible, ignore browser or app chrome unless it matters, and keep the answer concise, grounded, and practical. Use plain text only.';
+  const question =
+    typeof body.question === 'string' && body.question.trim() ? body.question.trim() : undefined;
   const imageDataUrl = typeof body.imageDataUrl === 'string' ? body.imageDataUrl.trim() : '';
   const match = imageDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
 
@@ -117,6 +125,7 @@ async function readAnalyzeRequest(request: Request): Promise<AnalyzeRequestPaylo
   return {
     quickActionId,
     promptTemplate,
+    question,
     imageMimeType: match[1],
     imageBase64Data: match[2]
   };
@@ -181,6 +190,7 @@ async function handleAnalyze(
       primaryModel: context.config.geminiModel,
       fallbackModel: context.config.geminiFallbackModel,
       promptTemplate: payload.promptTemplate,
+      question: payload.question,
       imageMimeType: payload.imageMimeType,
       imageBase64Data: payload.imageBase64Data
     });
@@ -220,6 +230,7 @@ async function handleAnalyzeStream(
       primaryModel: context.config.geminiModel,
       fallbackModel: context.config.geminiFallbackModel,
       promptTemplate: payload.promptTemplate,
+      question: payload.question,
       imageMimeType: payload.imageMimeType,
       imageBase64Data: payload.imageBase64Data
     });

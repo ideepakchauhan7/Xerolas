@@ -19,6 +19,7 @@ import {
   type AnalysisResult,
   type AppRuntimeState,
   type AppSettings,
+  type AskQuestionState,
   DEFAULT_SETTINGS,
   DEFAULT_TRANSLATE_TARGET_LANGUAGE,
   type DisplaySnapshot,
@@ -94,6 +95,12 @@ const appWindows = {
   settings: null as BrowserWindow | null
 };
 
+interface ActiveCaptureContext {
+  imageDataUrl: string;
+  imageBytes: Uint8Array;
+  selection: SelectionPayload;
+}
+
 let tray: Tray | null = null;
 let isQuitting = false;
 let settings: AppSettings = {
@@ -127,6 +134,10 @@ let resultWindowAutoResizeEnabled = false;
 let pendingFinalResultLayoutFit = false;
 let resultOverflowEnabled = false;
 let settingResultWindowBounds = false;
+let activeCaptureContext: ActiveCaptureContext | null = null;
+let askQuestionDraft = '';
+let askQuestionComposerOpen = false;
+let askQuestionSubmitting = false;
 const SESSION_REFRESH_BUFFER_MS = 60_000;
 
 function toRect(input: Electron.Rectangle): Rect {
@@ -384,7 +395,7 @@ function buildRuntimeState(): AppRuntimeState {
     captureReady: !getBackendConfigurationIssue(),
     accessMessage: getAccessMessage(),
     resultVisible: Boolean(appWindows.result?.isVisible()),
-    hasResult: Boolean(latestAnalysis || currentResultStream),
+    hasResult: Boolean(latestAnalysis || currentResultStream || (askQuestionComposerOpen && getReusableCaptureContext())),
     historyCount: historyItems.length,
     lastPreview: currentResultStream?.text.slice(0, 120) ?? latestAnalysis?.text.slice(0, 120) ?? '',
     lastError
@@ -425,7 +436,88 @@ function broadcastHistory(): void {
 }
 
 function getActiveResultSelection(): SelectionPayload | null {
-  return currentResultStream?.selection ?? latestAnalysis?.selection ?? null;
+  return currentResultStream?.selection ?? latestAnalysis?.selection ?? activeCaptureContext?.selection ?? null;
+}
+
+function buildAskQuestionState(): AskQuestionState {
+  return {
+    questionText: askQuestionDraft,
+    isQuestionComposerOpen: askQuestionComposerOpen,
+    isSubmitting: askQuestionSubmitting,
+    hasCaptureContext: Boolean(getReusableCaptureContext())
+  };
+}
+
+function broadcastAskQuestionState(): void {
+  [appWindows.result]
+    .filter((window): window is BrowserWindow => Boolean(window && !window.isDestroyed()))
+    .forEach((window) => window.webContents.send('ask-question:update', buildAskQuestionState()));
+
+  broadcastState();
+}
+
+function setActiveCaptureContext(context: ActiveCaptureContext | null): void {
+  activeCaptureContext = context;
+  broadcastAskQuestionState();
+}
+
+function getReusableCaptureContext(): ActiveCaptureContext | null {
+  if (activeCaptureContext) {
+    return activeCaptureContext;
+  }
+
+  if (!latestAnalysis) {
+    return null;
+  }
+
+  return {
+    imageDataUrl: latestAnalysis.imageDataUrl,
+    imageBytes: toPngBytes(latestAnalysis.imageDataUrl),
+    selection: latestAnalysis.selection
+  };
+}
+
+function setAskQuestionDraft(questionText: string): void {
+  if (askQuestionDraft === questionText) {
+    return;
+  }
+
+  askQuestionDraft = questionText;
+  broadcastAskQuestionState();
+}
+
+function setAskQuestionComposerClosed(clearDraft = false): void {
+  askQuestionComposerOpen = false;
+  askQuestionSubmitting = false;
+  if (clearDraft) {
+    askQuestionDraft = '';
+  }
+  broadcastAskQuestionState();
+}
+
+async function openAskQuestionComposer(): Promise<void> {
+  const captureContext = getReusableCaptureContext();
+  if (!captureContext) {
+    return;
+  }
+
+  askQuestionComposerOpen = true;
+  askQuestionSubmitting = false;
+  broadcastAskQuestionState();
+  await showResultWindow({
+    selection: captureContext.selection,
+    reposition: !appWindows.result?.isVisible(),
+    preferredSize: estimateAutoResultWindowSize(captureContext.selection, '').size,
+    clearStream: false
+  });
+}
+
+async function closeAskQuestionComposer(): Promise<void> {
+  const shouldHideWindow = !latestAnalysis && !currentResultStream;
+  setAskQuestionComposerClosed();
+  if (shouldHideWindow) {
+    await hideResultWindow();
+  }
 }
 
 function broadcastResultStream(): void {
@@ -490,6 +582,8 @@ async function clearActiveResultState(options: { hideWindow?: boolean } = {}): P
 async function dismissActiveCaptureSession(): Promise<void> {
   endCaptureSession();
   hideOverlayWindow();
+  setActiveCaptureContext(null);
+  setAskQuestionComposerClosed(true);
   await clearActiveResultState();
 }
 
@@ -889,6 +983,16 @@ function handleResultLayoutHeight(contentHeight: number): void {
     return;
   }
 
+  if (askQuestionComposerOpen && !latestAnalysis) {
+    const captureContext = getReusableCaptureContext();
+    if (captureContext) {
+      maybeAutoResizeResultWindow('', captureContext.selection, {
+        contentHeight
+      });
+    }
+    return;
+  }
+
   if (!pendingFinalResultLayoutFit || !latestAnalysis) {
     return;
   }
@@ -1016,6 +1120,7 @@ async function showResultWindow(options: {
   resultWindow.webContents.send('result:update', latestAnalysis);
   resultWindow.webContents.send('history:update', buildHistoryViewModel());
   resultWindow.webContents.send('result:stream', options.clearStream ? null : currentResultStream);
+  resultWindow.webContents.send('ask-question:update', buildAskQuestionState());
   resultWindow.show();
   resultWindow.focus();
   markCapturePerf('result-window-shown', {
@@ -1040,7 +1145,7 @@ async function minimizeResultWindow(): Promise<void> {
 }
 
 async function toggleResultWindow(): Promise<void> {
-  if (!latestAnalysis && !currentResultStream) {
+  if (!latestAnalysis && !currentResultStream && !(askQuestionComposerOpen && getReusableCaptureContext())) {
     return;
   }
 
@@ -1369,6 +1474,12 @@ async function showHistoryEntry(id: string): Promise<void> {
     return;
   }
 
+  setActiveCaptureContext({
+    imageDataUrl: entry.imageDataUrl,
+    imageBytes: toPngBytes(entry.imageDataUrl),
+    selection: entry.selection
+  });
+  setAskQuestionComposerClosed(true);
   latestAnalysis = entry;
   pushResultStreamState(null);
   clearError();
@@ -1380,7 +1491,14 @@ async function showMostRecentHistoryResult(): Promise<void> {
     return;
   }
 
-  latestAnalysis = historyItems[0];
+  const entry = historyItems[0];
+  setActiveCaptureContext({
+    imageDataUrl: entry.imageDataUrl,
+    imageBytes: toPngBytes(entry.imageDataUrl),
+    selection: entry.selection
+  });
+  setAskQuestionComposerClosed(true);
+  latestAnalysis = entry;
   pushResultStreamState(null);
   clearError();
   await showResultWindow({ clearStream: true });
@@ -1435,12 +1553,18 @@ async function analyzeExistingImage(
   quickActionId: QuickActionId,
   fallbackPromptTemplate: string,
   captureSessionId: number,
-  options: { repositionResult?: boolean } = {}
+  options: { repositionResult?: boolean; question?: string } = {}
 ): Promise<void> {
   const backendConfigurationIssue = getBackendConfigurationIssue();
   if (backendConfigurationIssue) {
     throw new Error(backendConfigurationIssue);
   }
+
+  setActiveCaptureContext({
+    imageDataUrl,
+    imageBytes,
+    selection
+  });
 
   const promptTemplate = resolvePromptTemplateForQuickAction(quickActionId, fallbackPromptTemplate);
   if (!isCaptureSessionActive(captureSessionId)) {
@@ -1451,7 +1575,7 @@ async function analyzeExistingImage(
     status: 'loading',
     quickActionId,
     text: '',
-    message: 'Xerolas is analyzing this capture…',
+    message: options.question?.trim() ? 'Xerolas is answering your question…' : 'Xerolas is analyzing this capture…',
     selection
   };
   resultWindowAutoResizeEnabled = Boolean(options.repositionResult);
@@ -1466,7 +1590,8 @@ async function analyzeExistingImage(
   let session = await fetchBackendSession();
   markCapturePerf('backend-request-start', {
     quickActionId,
-    bytes: imageBytes.byteLength
+    bytes: imageBytes.byteLength,
+    question: options.question?.trim() ?? null
   });
 
   const startStream = async (sessionToken: string) =>
@@ -1478,7 +1603,8 @@ async function analyzeExistingImage(
         imageBytes,
         appVersion: app.getVersion(),
         platform: process.platform,
-        sessionToken
+        sessionToken,
+        question: options.question?.trim()
       },
       {
         onMeta: ({ model, usedFallback }) => {
@@ -1540,7 +1666,7 @@ async function analyzeExistingImage(
   });
 
   latestAnalysis = {
-    id: `${Date.now()}`,
+    id: String(Date.now()),
     createdAt: new Date().toISOString(),
     provider: analysis.provider,
     model: analysis.model,
@@ -1580,6 +1706,11 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
   const croppedImage = cropSelectionImage(activeOverlayPayload, selection);
   const imageBytes = croppedImage.toPNG();
   const imageDataUrl = croppedImage.toDataURL();
+  setActiveCaptureContext({
+    imageDataUrl,
+    imageBytes,
+    selection
+  });
   markCapturePerf('crop-complete', {
     width: selection.absoluteBounds.width,
     height: selection.absoluteBounds.height,
@@ -1591,6 +1722,22 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
     throw new Error(backendConfigurationIssue);
   }
 
+  if (settings.quickActionId === 'ask') {
+    await clearActiveResultState({ hideWindow: false });
+    askQuestionDraft = '';
+    askQuestionComposerOpen = true;
+    askQuestionSubmitting = false;
+    broadcastAskQuestionState();
+    await showResultWindow({
+      selection,
+      reposition: true,
+      preferredSize: estimateAutoResultWindowSize(selection, '').size,
+      clearStream: true
+    });
+    return;
+  }
+
+  setAskQuestionComposerClosed(true);
   await analyzeExistingImage(
     imageDataUrl,
     imageBytes,
@@ -1603,11 +1750,17 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
 }
 
 async function rerunLatestAnalysis(nextQuickActionId: QuickActionId): Promise<void> {
-  if (!latestAnalysis) {
+  const reusableCaptureContext = getReusableCaptureContext();
+  if (!reusableCaptureContext) {
     return;
   }
 
-  currentCapturePerfSession = createPerfSession(`rerun:${Date.now()}`);
+  if (nextQuickActionId === 'ask') {
+    await openAskQuestionComposer();
+    return;
+  }
+
+  currentCapturePerfSession = createPerfSession('rerun:' + Date.now());
   captureInProgress = true;
   broadcastState();
 
@@ -1616,12 +1769,13 @@ async function rerunLatestAnalysis(nextQuickActionId: QuickActionId): Promise<vo
       quickActionId: nextQuickActionId
     });
     const captureSessionId = activeCaptureSessionId ?? beginCaptureSession();
+    setAskQuestionComposerClosed();
     await analyzeExistingImage(
-      latestAnalysis.imageDataUrl,
-      toPngBytes(latestAnalysis.imageDataUrl),
-      latestAnalysis.selection,
+      reusableCaptureContext.imageDataUrl,
+      reusableCaptureContext.imageBytes,
+      reusableCaptureContext.selection,
       nextQuickActionId,
-      latestAnalysis.promptTemplate,
+      latestAnalysis?.promptTemplate ?? settings.promptTemplate,
       captureSessionId
     );
   } catch (error) {
@@ -1630,6 +1784,49 @@ async function rerunLatestAnalysis(nextQuickActionId: QuickActionId): Promise<vo
   } finally {
     captureInProgress = false;
     broadcastState();
+    currentCapturePerfSession = null;
+  }
+}
+
+
+async function submitAskQuestion(questionText: string): Promise<void> {
+  const trimmedQuestion = questionText.trim();
+  const reusableCaptureContext = getReusableCaptureContext();
+  if (!trimmedQuestion || !reusableCaptureContext) {
+    return;
+  }
+
+  askQuestionDraft = questionText;
+  askQuestionComposerOpen = true;
+  askQuestionSubmitting = true;
+  broadcastAskQuestionState();
+
+  currentCapturePerfSession = createPerfSession('ask:' + Date.now());
+
+  try {
+    markCapturePerf('triggered', {
+      quickActionId: 'ask',
+      questionLength: trimmedQuestion.length
+    });
+    const captureSessionId = activeCaptureSessionId ?? beginCaptureSession();
+    await analyzeExistingImage(
+      reusableCaptureContext.imageDataUrl,
+      reusableCaptureContext.imageBytes,
+      reusableCaptureContext.selection,
+      'ask',
+      getQuickActionPrompt('ask') ?? settings.promptTemplate,
+      captureSessionId,
+      {
+        repositionResult: !appWindows.result?.isVisible(),
+        question: trimmedQuestion
+      }
+    );
+  } catch (error) {
+    setError(error);
+    showCaptureFailure(error);
+  } finally {
+    askQuestionSubmitting = false;
+    broadcastAskQuestionState();
     currentCapturePerfSession = null;
   }
 }
@@ -1848,6 +2045,19 @@ function installIpcHandlers(): void {
   ipcMain.handle('result:rerun', async (_event, quickActionId: QuickActionId) => {
     await rerunLatestAnalysis(quickActionId);
   });
+  ipcMain.handle('ask-question:get', () => buildAskQuestionState());
+  ipcMain.handle('ask-question:open', async () => {
+    await openAskQuestionComposer();
+  });
+  ipcMain.handle('ask-question:close', async () => {
+    await closeAskQuestionComposer();
+  });
+  ipcMain.handle('ask-question:update', async (_event, questionText: string) => {
+    setAskQuestionDraft(typeof questionText === 'string' ? questionText : '');
+  });
+  ipcMain.handle('ask-question:submit', async (_event, questionText: string) => {
+    await submitAskQuestion(typeof questionText === 'string' ? questionText : '');
+  });
   ipcMain.handle('result:get', () => latestAnalysis);
   ipcMain.handle('result:overflow:get', () => resultOverflowEnabled);
   ipcMain.handle('result:stream:get', () => currentResultStream);
@@ -1898,7 +2108,7 @@ function installIpcHandlers(): void {
 
 app.on('second-instance', () => {
   void syncWidgetWindows();
-  if (latestAnalysis || currentResultStream) {
+  if (latestAnalysis || currentResultStream || (askQuestionComposerOpen && getReusableCaptureContext())) {
     void showResultWindow();
   }
 });

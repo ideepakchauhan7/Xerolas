@@ -89,6 +89,13 @@ export interface ResultStreamState {
   selection: SelectionPayload | null;
 }
 
+export interface AskQuestionState {
+  questionText: string;
+  isQuestionComposerOpen: boolean;
+  isSubmitting: boolean;
+  hasCaptureContext: boolean;
+}
+
 export interface WidgetPositionMap {
   [displayId: string]: Point;
 }
@@ -142,6 +149,12 @@ export interface DesktopAssistantApi {
   onAppState: (listener: (state: AppRuntimeState) => void) => () => void;
   requestCapture: (quickActionId?: QuickActionId) => Promise<void>;
   rerunResult: (quickActionId: QuickActionId) => Promise<void>;
+  getAskQuestionState: () => Promise<AskQuestionState>;
+  onAskQuestionState: (listener: (state: AskQuestionState) => void) => () => void;
+  openAskQuestionComposer: () => Promise<void>;
+  closeAskQuestionComposer: () => Promise<void>;
+  updateAskQuestionDraft: (questionText: string) => Promise<void>;
+  submitAskQuestion: (questionText: string) => Promise<void>;
   toggleResult: () => Promise<void>;
   collapseResult: () => Promise<void>;
   minimizeResult: () => Promise<void>;

@@ -10,6 +10,7 @@ interface AnalyzeImageInput {
   primaryModel: string;
   fallbackModel: string;
   promptTemplate: string;
+  question?: string;
   imageMimeType: string;
   imageBase64Data: string;
 }
@@ -45,11 +46,28 @@ const EMPTY_GROUNDING: GeminiGroundingResult = {
   sources: []
 };
 
-function buildGeminiPrompt(promptTemplate: string): string {
-  return `${SHARED_GEMINI_INSTRUCTION}
+function buildGeminiPrompt(promptTemplate: string, question?: string): string {
+  const trimmedPrompt = promptTemplate.trim();
+  const trimmedQuestion = question?.trim();
+
+  if (!trimmedQuestion) {
+    return `${SHARED_GEMINI_INSTRUCTION}
 
 User request:
-${promptTemplate.trim()}`;
+${trimmedPrompt}`;
+  }
+
+  return [
+    SHARED_GEMINI_INSTRUCTION,
+    '',
+    'Primary task:',
+    trimmedPrompt,
+    '',
+    'User question about this capture:',
+    trimmedQuestion,
+    '',
+    "Answer the user's question using the captured image as the primary context. If the answer is not visible in the capture, say that briefly instead of guessing."
+  ].join('\n');
 }
 
 function extractGeminiTextChunk(payload: Record<string, unknown>): string {
@@ -189,6 +207,7 @@ function extractGeminiGrounding(payload: Record<string, unknown>): GeminiGroundi
 
 function createGeminiRequestBody(input: {
   promptTemplate: string;
+  question?: string;
   imageMimeType: string;
   imageBase64Data: string;
 }): string {
@@ -196,7 +215,7 @@ function createGeminiRequestBody(input: {
     contents: [
       {
         parts: [
-          { text: buildGeminiPrompt(input.promptTemplate) },
+          { text: buildGeminiPrompt(input.promptTemplate, input.question) },
           {
             inline_data: {
               mime_type: input.imageMimeType,
@@ -231,6 +250,7 @@ async function requestGeminiAnalysisStream(input: {
   apiKey: string;
   model: string;
   promptTemplate: string;
+  question?: string;
   imageMimeType: string;
   imageBase64Data: string;
 }): Promise<{ stream: AsyncGenerator<string>; model: string; getGrounding: () => GeminiGroundingResult }> {
@@ -351,6 +371,7 @@ async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<Gemin
       apiKey: input.apiKey,
       model: input.primaryModel,
       promptTemplate: input.promptTemplate,
+      question: input.question,
       imageMimeType: input.imageMimeType,
       imageBase64Data: input.imageBase64Data
     });
@@ -371,6 +392,7 @@ async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<Gemin
       apiKey: input.apiKey,
       model: input.primaryModel,
       promptTemplate: input.promptTemplate,
+      question: input.question,
       imageMimeType: input.imageMimeType,
       imageBase64Data: input.imageBase64Data
     });
@@ -390,6 +412,7 @@ async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<Gemin
         apiKey: input.apiKey,
         model: input.fallbackModel,
         promptTemplate: input.promptTemplate,
+        question: input.question,
         imageMimeType: input.imageMimeType,
         imageBase64Data: input.imageBase64Data
       });
