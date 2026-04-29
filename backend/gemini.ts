@@ -36,31 +36,45 @@ const SHARED_GEMINI_INSTRUCTION = [
   'Focus on the main subject inside the selected region.',
   'Ignore browser chrome, toolbars, app frames, and surrounding UI unless they are directly relevant to the user request.',
   'If the capture contains a question, puzzle, article, code block, error, document, or worksheet, solve or explain that content instead of mainly narrating the layout.',
-  'Always combine visual understanding with the available Google Search grounding tool so the answer can use current web context when Gemini can ground it.',
-  'When web grounding returns sources, base current facts on those sources and keep the source attribution available through grounding metadata.',
   'Lead with the most useful answer first, then give short supporting points if needed.',
   'Keep the response concise, grounded in what is visible, and practical.',
   'Use plain text only. Do not use markdown tables, code fences, or bold markers.'
 ].join(' ');
+
+const GROUNDED_GEMINI_INSTRUCTION = [
+  'Always combine visual understanding with the available Google Search grounding tool so the answer can use current web context when Gemini can ground it.',
+  'When web grounding returns sources, base current facts on those sources and keep the source attribution available through grounding metadata.'
+].join(' ');
+
+const VISUAL_ONLY_CAPACITY_FALLBACK_INSTRUCTION =
+  'Google Search grounding is temporarily unavailable for this retry. Do not mention that limitation unless the user asks; answer from the captured image and visible context only.';
 
 const EMPTY_GROUNDING: GeminiGroundingResult = {
   groundingUsed: false,
   sources: []
 };
 
-function buildGeminiPrompt(promptTemplate: string, question?: string): string {
+function buildGeminiPrompt(promptTemplate: string, question?: string, useGrounding = true): string {
   const trimmedPrompt = promptTemplate.trim();
   const trimmedQuestion = question?.trim();
+  const instruction = [
+    SHARED_GEMINI_INSTRUCTION,
+    useGrounding ? GROUNDED_GEMINI_INSTRUCTION : VISUAL_ONLY_CAPACITY_FALLBACK_INSTRUCTION
+  ].join(' ');
 
   if (!trimmedQuestion) {
-    return `${SHARED_GEMINI_INSTRUCTION}
+    return `${instruction}
 
 User request:
 ${trimmedPrompt}`;
   }
 
+  const questionInstruction = useGrounding
+    ? "Answer the user's question using the captured image as the primary context, then verify or enrich the answer with Google Search grounding when available. If the answer is not supported by the capture or grounded web context, say that briefly instead of guessing."
+    : "Answer the user's question using the captured image as the primary context. If the answer is not supported by the capture, say that briefly instead of guessing.";
+
   return [
-    SHARED_GEMINI_INSTRUCTION,
+    instruction,
     '',
     'Primary task:',
     trimmedPrompt,
@@ -68,7 +82,7 @@ ${trimmedPrompt}`;
     'User question about this capture:',
     trimmedQuestion,
     '',
-    "Answer the user's question using the captured image as the primary context, then verify or enrich the answer with Google Search grounding when available. If the answer is not supported by the capture or grounded web context, say that briefly instead of guessing."
+    questionInstruction
   ].join('\n');
 }
 
@@ -212,12 +226,13 @@ function createGeminiRequestBody(input: {
   question?: string;
   imageMimeType: string;
   imageBase64Data: string;
+  useGrounding?: boolean;
 }): string {
   return JSON.stringify({
     contents: [
       {
         parts: [
-          { text: buildGeminiPrompt(input.promptTemplate, input.question) },
+          { text: buildGeminiPrompt(input.promptTemplate, input.question, input.useGrounding ?? true) },
           {
             inline_data: {
               mime_type: input.imageMimeType,
@@ -227,11 +242,15 @@ function createGeminiRequestBody(input: {
         ]
       }
     ],
-    tools: [
-      {
-        google_search: {}
-      }
-    ]
+    ...(input.useGrounding === false
+      ? {}
+      : {
+          tools: [
+            {
+              google_search: {}
+            }
+          ]
+        })
   });
 }
 
@@ -255,6 +274,7 @@ async function requestGeminiAnalysisStream(input: {
   question?: string;
   imageMimeType: string;
   imageBase64Data: string;
+  useGrounding?: boolean;
 }): Promise<{ stream: AsyncGenerator<string>; model: string; getGrounding: () => GeminiGroundingResult }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:streamGenerateContent?alt=sse`,
@@ -368,63 +388,73 @@ async function requestGeminiAnalysisStream(input: {
 }
 
 async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<GeminiOpenStreamResult> {
-  try {
-    const primary = await requestGeminiAnalysisStream({
-      apiKey: input.apiKey,
+  const attempts: Array<{
+    model: string;
+    usedFallback: boolean;
+    useGrounding: boolean;
+    delayMs: number;
+  }> = [
+    {
       model: input.primaryModel,
-      promptTemplate: input.promptTemplate,
-      question: input.question,
-      imageMimeType: input.imageMimeType,
-      imageBase64Data: input.imageBase64Data
-    });
-    return {
-      ...primary,
-      usedFallback: false
-    };
-  } catch (initialError) {
-    if (!isRetryableProviderError(initialError)) {
-      throw initialError;
-    }
-  }
-
-  await sleep(700);
-
-  try {
-    const retry = await requestGeminiAnalysisStream({
-      apiKey: input.apiKey,
+      usedFallback: false,
+      useGrounding: true,
+      delayMs: 0
+    },
+    {
       model: input.primaryModel,
-      promptTemplate: input.promptTemplate,
-      question: input.question,
-      imageMimeType: input.imageMimeType,
-      imageBase64Data: input.imageBase64Data
-    });
-    return {
-      ...retry,
-      usedFallback: false
-    };
-  } catch (retryError) {
-    if (!isRetryableProviderError(retryError)) {
-      throw retryError;
+      usedFallback: false,
+      useGrounding: true,
+      delayMs: 700
     }
-  }
+  ];
 
   if (input.fallbackModel && input.fallbackModel !== input.primaryModel) {
+    attempts.push({
+      model: input.fallbackModel,
+      usedFallback: true,
+      useGrounding: true,
+      delayMs: 0
+    });
+  }
+
+  attempts.push({
+    model: input.primaryModel,
+    usedFallback: false,
+    useGrounding: false,
+    delayMs: 400
+  });
+
+  if (input.fallbackModel && input.fallbackModel !== input.primaryModel) {
+    attempts.push({
+      model: input.fallbackModel,
+      usedFallback: true,
+      useGrounding: false,
+      delayMs: 0
+    });
+  }
+
+  for (const attempt of attempts) {
+    if (attempt.delayMs > 0) {
+      await sleep(attempt.delayMs);
+    }
+
     try {
-      const fallback = await requestGeminiAnalysisStream({
+      const opened = await requestGeminiAnalysisStream({
         apiKey: input.apiKey,
-        model: input.fallbackModel,
+        model: attempt.model,
         promptTemplate: input.promptTemplate,
         question: input.question,
         imageMimeType: input.imageMimeType,
-        imageBase64Data: input.imageBase64Data
+        imageBase64Data: input.imageBase64Data,
+        useGrounding: attempt.useGrounding
       });
       return {
-        ...fallback,
-        usedFallback: true
+        ...opened,
+        usedFallback: attempt.usedFallback
       };
-    } catch (fallbackError) {
-      if (!isRetryableProviderError(fallbackError)) {
-        throw fallbackError;
+    } catch (error) {
+      if (!isRetryableProviderError(error)) {
+        throw error;
       }
     }
   }
