@@ -230,11 +230,7 @@ function scheduleTypewriter(): void {
 }
 
 function getActiveQuickActionId(): QuickActionId {
-  if (askQuestionState.isQuestionComposerOpen) {
-    return 'ask';
-  }
-
-  return currentStream?.quickActionId ?? currentResult?.quickActionId ?? 'describe';
+  return currentStream?.quickActionId ?? currentResult?.quickActionId ?? (askQuestionState.isQuestionComposerOpen ? 'ask' : 'describe');
 }
 
 function maybeFocusAskQuestionInput(): void {
@@ -251,7 +247,7 @@ function maybeFocusAskQuestionInput(): void {
 }
 
 function renderAskQuestionComposer(): void {
-  const shouldShow = askQuestionState.isQuestionComposerOpen && askQuestionState.hasCaptureContext;
+  const shouldShow = getActiveQuickActionId() === 'ask' && askQuestionState.isQuestionComposerOpen && askQuestionState.hasCaptureContext;
   askQuestionComposer.hidden = !shouldShow;
   resultCard.classList.toggle('has-ask-composer', shouldShow);
 
@@ -416,7 +412,7 @@ function renderEmptyState(): void {
   clearGroundingInfo();
   appendParagraph(
     resultText,
-    askQuestionState.hasCaptureContext
+    getActiveQuickActionId() === 'ask' && askQuestionState.hasCaptureContext
       ? 'Ask a question about this capture and Xerolas will answer from the selected region.'
       : 'Capture any part of your screen and Xerolas will show the answer here.'
   );
