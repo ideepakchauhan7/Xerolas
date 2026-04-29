@@ -126,6 +126,7 @@ let appManagedDefaults: Partial<Pick<AppSettings, 'quickActionId' | 'promptTempl
 let backendSession: BackendSession | null = null;
 let backendSessionRequest: Promise<BackendSession> | null = null;
 let activeCaptureSessionId: number | null = null;
+let captureSessionQuickActionId: QuickActionId | null = null;
 let nextCaptureSessionId = 0;
 let captureRestoreState: { settingsWasVisible: boolean } = {
   settingsWasVisible: false
@@ -550,6 +551,14 @@ function broadcastActiveResult(): void {
     .forEach((window) => window.webContents.send('result:update', latestAnalysis));
 }
 
+function sanitizePersistedQuickActionId(quickActionId: QuickActionId | null | undefined): QuickActionId {
+  if (!quickActionId || quickActionId === 'ask') {
+    return DEFAULT_SETTINGS.quickActionId;
+  }
+
+  return quickActionId;
+}
+
 function beginCaptureSession(): number {
   const captureSessionId = ++nextCaptureSessionId;
   activeCaptureSessionId = captureSessionId;
@@ -558,6 +567,7 @@ function beginCaptureSession(): number {
 
 function endCaptureSession(): void {
   activeCaptureSessionId = null;
+  captureSessionQuickActionId = null;
 }
 
 function isCaptureSessionActive(captureSessionId: number | null | undefined): boolean {
@@ -1513,14 +1523,19 @@ async function clearHistoryEntries(): Promise<void> {
 }
 
 function applyQuickActionSelection(nextQuickActionId: QuickActionId | undefined): void {
-  if (!nextQuickActionId || nextQuickActionId === settings.quickActionId) {
+  if (!nextQuickActionId || nextQuickActionId === 'ask') {
     return;
   }
 
-  const presetPrompt = getQuickActionById(nextQuickActionId)?.prompt;
+  const persistedQuickActionId = sanitizePersistedQuickActionId(nextQuickActionId);
+  if (persistedQuickActionId === settings.quickActionId) {
+    return;
+  }
+
+  const presetPrompt = getQuickActionById(persistedQuickActionId)?.prompt;
   settings = {
     ...settings,
-    quickActionId: nextQuickActionId,
+    quickActionId: persistedQuickActionId,
     promptTemplate: presetPrompt || settings.promptTemplate
   };
   persistSettings(settings);
@@ -1718,7 +1733,9 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
     throw new Error(backendConfigurationIssue);
   }
 
-  if (settings.quickActionId === 'ask') {
+  const captureQuickActionId = captureSessionQuickActionId ?? sanitizePersistedQuickActionId(settings.quickActionId);
+
+  if (captureQuickActionId === 'ask') {
     await clearActiveResultState({ hideWindow: false });
     askQuestionDraft = '';
     askQuestionComposerOpen = true;
@@ -1738,8 +1755,10 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
     imageDataUrl,
     imageBytes,
     selection,
-    settings.quickActionId,
-    settings.promptTemplate,
+    captureQuickActionId,
+    captureQuickActionId === settings.quickActionId ? settings.promptTemplate : getQuickActionPrompt(captureQuickActionId, {
+      translateTargetLanguage: settings.translateTargetLanguage
+    }) ?? settings.promptTemplate,
     captureSessionId,
     { repositionResult: true }
   );
@@ -1847,9 +1866,10 @@ async function startCaptureFlow(nextQuickActionId?: QuickActionId): Promise<void
 
   currentCapturePerfSession = createPerfSession(`capture:${Date.now()}`);
 
+  const captureQuickActionId = nextQuickActionId ?? sanitizePersistedQuickActionId(settings.quickActionId);
   applyQuickActionSelection(nextQuickActionId);
   markCapturePerf('triggered', {
-    quickActionId: nextQuickActionId ?? settings.quickActionId
+    quickActionId: captureQuickActionId
   });
 
   if (!hasCaptureAccess()) {
@@ -1868,6 +1888,7 @@ async function startCaptureFlow(nextQuickActionId?: QuickActionId): Promise<void
   hideWidgets();
   hideSettingsWindow();
   const captureSessionId = beginCaptureSession();
+  captureSessionQuickActionId = captureQuickActionId;
 
   try {
     overlayPayload = await buildOverlayPayload();
@@ -1925,12 +1946,12 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
       : settings.translateTargetLanguage;
   const requestedQuickActionId =
     patch.quickActionId !== undefined
-      ? patch.quickActionId
+      ? sanitizePersistedQuickActionId(patch.quickActionId)
       : patch.promptTemplate !== undefined
         ? resolveQuickActionId(trimmedPromptTemplate || settings.promptTemplate, {
             translateTargetLanguage: nextTranslateTargetLanguage
           })
-        : settings.quickActionId;
+        : sanitizePersistedQuickActionId(settings.quickActionId);
   const presetPrompt = getQuickActionPrompt(requestedQuickActionId, {
     translateTargetLanguage: nextTranslateTargetLanguage
   });
@@ -1962,7 +1983,7 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
       ? resolveQuickActionId(nextPromptTemplate, {
           translateTargetLanguage: nextTranslateTargetLanguage
         })
-      : requestedQuickActionId;
+      : sanitizePersistedQuickActionId(requestedQuickActionId);
   const nextSettings: AppSettings = {
     ...settings,
     quickActionId: normalizedQuickActionId,
@@ -2148,7 +2169,7 @@ app.whenReady().then(async () => {
   updateGithubOwner = appConfig?.updateGithubOwner ?? '';
   updateGithubRepo = appConfig?.updateGithubRepo ?? '';
   appManagedDefaults = {
-    quickActionId: appConfig?.defaultQuickActionId,
+    quickActionId: sanitizePersistedQuickActionId(appConfig?.defaultQuickActionId),
     promptTemplate: appConfig?.defaultPromptTemplate
   };
 
@@ -2162,7 +2183,9 @@ app.whenReady().then(async () => {
     appManagedDefaults.promptTemplate ??
     DEFAULT_SETTINGS.promptTemplate;
   const migratedQuickActionId =
-    loadedSettings.quickActionId === 'code' ? DEFAULT_SETTINGS.quickActionId : loadedSettings.quickActionId;
+    loadedSettings.quickActionId === 'code' || loadedSettings.quickActionId === 'ask'
+      ? DEFAULT_SETTINGS.quickActionId
+      : loadedSettings.quickActionId;
   const shortcut = LEGACY_DEFAULT_SHORTCUTS.has(loadedSettings.shortcut ?? '')
     ? DEFAULT_SETTINGS.shortcut
     : loadedSettings.shortcut ?? DEFAULT_SETTINGS.shortcut;
@@ -2176,7 +2199,9 @@ app.whenReady().then(async () => {
     quickActionId === 'describe' &&
     (LEGACY_DESCRIBE_PROMPTS.has(rawInitialPromptTemplate) ||
       (loadedSettings.quickActionId === 'code' &&
-        (!loadedSettings.promptTemplate || LEGACY_CODE_DEFAULT_PROMPTS.has(rawInitialPromptTemplate))));
+        (!loadedSettings.promptTemplate || LEGACY_CODE_DEFAULT_PROMPTS.has(rawInitialPromptTemplate))) ||
+      (loadedSettings.quickActionId === 'ask' &&
+        (!loadedSettings.promptTemplate || rawInitialPromptTemplate === (getQuickActionPrompt('ask') ?? ''))));
   const initialPromptTemplate = shouldResetToDefaultDescribePrompt
     ? DEFAULT_SETTINGS.promptTemplate
     : rawInitialPromptTemplate;

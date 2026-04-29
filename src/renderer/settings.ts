@@ -23,6 +23,7 @@ const summaryAction = document.getElementById('summary-action') as HTMLHeadingEl
 
 let currentQuickActionId: QuickActionId = 'describe';
 let currentTranslateTargetLanguage = 'English';
+const SETTINGS_QUICK_ACTIONS = QUICK_ACTIONS.filter((action) => action.id !== 'ask');
 
 function getCurrentTranslatePresetPrompt(targetLanguage = currentTranslateTargetLanguage): string {
   return getQuickActionPrompt('translate', { translateTargetLanguage: targetLanguage }) ?? '';
@@ -31,7 +32,7 @@ function getCurrentTranslatePresetPrompt(targetLanguage = currentTranslateTarget
 function renderQuickActionButtons(activeQuickActionId: QuickActionId): void {
   quickActionPresets.innerHTML = '';
 
-  QUICK_ACTIONS.forEach((action) => {
+  SETTINGS_QUICK_ACTIONS.forEach((action) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `preset-chip${action.id === activeQuickActionId ? ' is-active' : ''}`;
