@@ -71,20 +71,6 @@ const WEB_SEARCH_INSTRUCTION =
 const NO_WEB_SEARCH_INSTRUCTION =
   'OpenRouter web search is disabled for this free fallback, so answer from the captured image and visible context only.';
 
-function buildQuestionFormatInstruction(question: string): string {
-  const normalizedQuestion = question.toLowerCase();
-
-  if (/(^|\b)(one|1|single)[ -]?(line|sentence)(\b|$)/.test(normalizedQuestion)) {
-    return 'The user requested a one-line answer. Return exactly one concise sentence on one line, with no extra explanation, bullets, preamble, or follow-up details.';
-  }
-
-  if (/\b(answer only|only answer|just answer|no explanation|without explanation|do not explain)\b/.test(normalizedQuestion)) {
-    return 'The user requested answer-only output. Return only the direct answer with no extra explanation, preamble, bullets, or supporting details.';
-  }
-
-  return 'Follow any output-format constraints in the user question, including requested length, language, and whether to omit explanation.';
-}
-
 function buildPrompt(input: AnalyzeImageInput): string {
   const trimmedPrompt = input.promptTemplate.trim();
   const trimmedQuestion = input.question?.trim();
@@ -111,7 +97,7 @@ function buildPrompt(input: AnalyzeImageInput): string {
       : "Answer the user's question using the captured image as the primary context. If the answer is not supported by the capture, say that briefly instead of guessing.",
     '',
     'Response format:',
-    buildQuestionFormatInstruction(trimmedQuestion)
+    'Read the user question carefully and treat it as the controlling instruction for this Ask response. Follow any requested answer style, length, language, structure, or exclusions exactly, and do not add extra context that violates the requested format.'
   ].join('\n');
 }
 
