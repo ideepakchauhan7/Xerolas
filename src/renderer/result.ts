@@ -110,6 +110,31 @@ function stopTypewriter(): void {
   }
 }
 
+function getElementContentHeight(element: HTMLElement): number {
+  const elementRect = element.getBoundingClientRect();
+  const elementStyles = window.getComputedStyle(element);
+  const borderHeight = parseFloat(elementStyles.borderTopWidth) + parseFloat(elementStyles.borderBottomWidth);
+  let contentHeight = element.scrollHeight + borderHeight;
+
+  Array.from(element.children).forEach((child) => {
+    if (!(child instanceof HTMLElement)) {
+      return;
+    }
+
+    const childRect = child.getBoundingClientRect();
+    const childStyles = window.getComputedStyle(child);
+    const childBottom =
+      childRect.bottom -
+      elementRect.top +
+      parseFloat(childStyles.marginBottom) +
+      parseFloat(elementStyles.paddingBottom) +
+      borderHeight;
+    contentHeight = Math.max(contentHeight, childBottom);
+  });
+
+  return Math.ceil(contentHeight);
+}
+
 function scheduleLayoutHeightReport(): void {
   if (layoutReportFrame !== null) {
     return;
@@ -132,7 +157,7 @@ function scheduleLayoutHeightReport(): void {
         cardPadding +
         resultTopbar.getBoundingClientRect().height +
         composerHeight +
-        resultText.scrollHeight +
+        getElementContentHeight(resultText) +
         sourcesHeight +
         shellGap * Math.max(0, sectionCount - 1) +
         2
@@ -461,6 +486,7 @@ window.addEventListener('keydown', async (event) => {
 
 window.desktopAssistant.onResultOverflowEnabled((enabled) => {
   setResultOverflowState(enabled);
+  scheduleLayoutHeightReport();
 });
 
 window.desktopAssistant.onAskQuestionState((state) => {
