@@ -225,14 +225,42 @@ function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): voi
   scheduleLayoutHeightReport();
 }
 
+function createSearchingInlineIndicator(): HTMLElement {
+  const indicator = document.createElement('div');
+  indicator.className = 'result-searching-inline';
+
+  const label = document.createElement('span');
+  label.className = 'result-searching-label';
+  label.textContent = 'Searching';
+
+  const icons = document.createElement('span');
+  icons.className = 'result-searching-icons';
+  icons.setAttribute('aria-hidden', 'true');
+
+  ['light', 'accent', 'dark'].forEach((tone, index) => {
+    const icon = document.createElement('span');
+    icon.className = `result-searching-icon result-searching-icon--${tone}`;
+    icon.textContent = index === 0 ? 'R' : index === 2 ? 'n' : '';
+    icons.appendChild(icon);
+  });
+
+  indicator.appendChild(label);
+  indicator.appendChild(icons);
+  return indicator;
+}
+
 function renderStreamBody(): void {
   resultText.innerHTML = '';
   resultText.style.whiteSpace = 'pre-wrap';
   resultText.classList.add('is-streaming');
   applyOverflowState();
 
-  const streamCopy = document.createElement('p');
   const suffix = currentStream && currentStream.status !== 'error' ? '▍' : '';
+  if (!displayedStreamText && currentStream?.webSearchInProgress) {
+    resultText.appendChild(createSearchingInlineIndicator());
+  }
+
+  const streamCopy = document.createElement('p');
   streamCopy.textContent = `${displayedStreamText}${suffix}`;
   resultText.appendChild(streamCopy);
   scheduleLayoutHeightReport();

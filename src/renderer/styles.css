@@ -680,6 +680,15 @@ button {
   margin-left: 1px;
 }
 
+.result-searching-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: var(--text-main);
+  font-size: 16px;
+}
+
 .result-searching-icon {
   display: inline-flex;
   align-items: center;

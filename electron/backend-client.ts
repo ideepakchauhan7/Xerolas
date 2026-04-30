@@ -345,6 +345,10 @@ export async function streamAnalyzeImage(
     throw new Error('The backend returned no stream for this capture.');
   }
 
+  if (response.headers.get('X-Xerolas-Web-Search') === 'active') {
+    handlers.onSearch?.({ webSearchInProgress: true });
+  }
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
