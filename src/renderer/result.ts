@@ -14,6 +14,7 @@ const resultTopbar = document.querySelector('.result-topbar') as HTMLDivElement;
 const resultText = document.getElementById('result-text') as HTMLDivElement;
 const quickActions = document.getElementById('quick-actions') as HTMLDivElement;
 const groundingBadge = document.getElementById('grounding-badge') as HTMLDivElement;
+const searchingBadge = document.getElementById('searching-badge') as HTMLDivElement;
 const sourcesSection = document.getElementById('result-sources') as HTMLElement;
 const sourcesList = document.getElementById('result-sources-list') as HTMLUListElement;
 const askQuestionComposer = document.getElementById('ask-question-composer') as HTMLElement;
@@ -167,7 +168,15 @@ function scheduleLayoutHeightReport(): void {
   });
 }
 
+function setSearchingBadgeVisible(visible: boolean): void {
+  searchingBadge.hidden = !visible;
+  if (visible) {
+    groundingBadge.hidden = true;
+  }
+}
+
 function clearGroundingInfo(): void {
+  searchingBadge.hidden = true;
   groundingBadge.hidden = true;
   sourcesSection.hidden = true;
   sourcesList.innerHTML = '';
@@ -179,6 +188,7 @@ function setResultOverflowState(enabled: boolean): void {
 }
 
 function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): void {
+  searchingBadge.hidden = true;
   groundingBadge.hidden = !groundingUsed;
 
   sourcesList.innerHTML = '';
@@ -419,6 +429,7 @@ function renderResult(result: AnalysisResult): void {
 function renderStreamState(state: ResultStreamState): void {
   currentStream = state;
   clearGroundingInfo();
+  setSearchingBadgeVisible(state.status !== 'error');
   renderQuickActions(getActiveQuickActionId());
   renderAskQuestionComposer();
   targetStreamText = state.text;
