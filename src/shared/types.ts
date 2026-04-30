@@ -87,6 +87,7 @@ export interface ResultStreamState {
   text: string;
   message: string | null;
   selection: SelectionPayload | null;
+  webSearchInProgress: boolean;
 }
 
 export interface AskQuestionState {

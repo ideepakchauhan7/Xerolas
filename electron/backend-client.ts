@@ -38,6 +38,11 @@ interface StreamDeltaPayload {
   text?: string;
 }
 
+interface StreamGroundingPayload {
+  groundingUsed?: boolean;
+  sources?: unknown;
+}
+
 interface StreamCompletePayload {
   text?: string;
   provider?: string;
@@ -73,6 +78,7 @@ export interface AnalyzeImageInput {
 export interface AnalyzeStreamHandlers {
   onMeta?: (payload: { provider: string; model: string; usedFallback: boolean }) => void;
   onDelta?: (payload: { chunk: string; text: string }) => void;
+  onGrounding?: (payload: { groundingUsed: boolean; sources: SourceLink[] }) => void;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -376,6 +382,22 @@ export async function streamAnalyzeImage(
       return;
     }
 
+    if (eventName === 'grounding') {
+      const grounding = payload as StreamGroundingPayload;
+      const nextSources = normalizeSourceLinks(grounding.sources);
+      const nextGroundingUsed = Boolean(grounding.groundingUsed) || nextSources.length > 0;
+      if (!nextGroundingUsed) {
+        return;
+      }
+
+      groundingUsed = true;
+      if (nextSources.length) {
+        sources = nextSources;
+      }
+      handlers.onGrounding?.({ groundingUsed: true, sources });
+      return;
+    }
+
     if (eventName === 'complete') {
       const complete = payload as StreamCompletePayload;
       aggregateText =
@@ -384,8 +406,9 @@ export async function streamAnalyzeImage(
         typeof complete.provider === 'string' && complete.provider.trim() ? complete.provider.trim() : provider;
       model = typeof complete.model === 'string' && complete.model.trim() ? complete.model.trim() : model;
       usedFallback = Boolean(complete.usedFallback);
-      groundingUsed = Boolean(complete.groundingUsed);
-      sources = normalizeSourceLinks(complete.sources);
+      const completeSources = normalizeSourceLinks(complete.sources);
+      groundingUsed = Boolean(complete.groundingUsed) || groundingUsed || completeSources.length > 0;
+      sources = completeSources.length ? completeSources : sources;
       return;
     }
 

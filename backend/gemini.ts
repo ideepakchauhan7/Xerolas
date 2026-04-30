@@ -24,8 +24,12 @@ interface GeminiGroundingResult {
   sources: SourceLink[];
 }
 
+type GeminiStreamEvent =
+  | { type: 'text'; text: string }
+  | { type: 'grounding'; grounding: GeminiGroundingResult };
+
 interface GeminiOpenStreamResult {
-  stream: AsyncGenerator<string>;
+  stream: AsyncGenerator<GeminiStreamEvent>;
   model: string;
   usedFallback: boolean;
   getGrounding: () => GeminiGroundingResult;
@@ -53,6 +57,10 @@ const EMPTY_GROUNDING: GeminiGroundingResult = {
   groundingUsed: false,
   sources: []
 };
+
+function getGroundingSignature(grounding: GeminiGroundingResult): string {
+  return [grounding.groundingUsed ? '1' : '0', ...grounding.sources.map((source) => source.url)].join('|');
+}
 
 function buildGeminiPrompt(promptTemplate: string, question?: string, useGrounding = true): string {
   const trimmedPrompt = promptTemplate.trim();
@@ -275,7 +283,7 @@ async function requestGeminiAnalysisStream(input: {
   imageMimeType: string;
   imageBase64Data: string;
   useGrounding?: boolean;
-}): Promise<{ stream: AsyncGenerator<string>; model: string; getGrounding: () => GeminiGroundingResult }> {
+}): Promise<{ stream: AsyncGenerator<GeminiStreamEvent>; model: string; getGrounding: () => GeminiGroundingResult }> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:streamGenerateContent?alt=sse`,
     {
@@ -323,12 +331,13 @@ async function requestGeminiAnalysisStream(input: {
 
   let latestGrounding = EMPTY_GROUNDING;
 
-  const stream = async function* (): AsyncGenerator<string> {
+  const stream = async function* (): AsyncGenerator<GeminiStreamEvent> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let lastGroundingSignature = '';
 
-    const processEventBlock = (block: string): string[] => {
+    const processEventBlock = (block: string): GeminiStreamEvent[] => {
       const dataLines = block
         .split('\n')
         .filter((line) => line.startsWith('data:'))
@@ -344,13 +353,24 @@ async function requestGeminiAnalysisStream(input: {
         return [];
       }
 
+      const events: GeminiStreamEvent[] = [];
       const payload = JSON.parse(payloadText) as Record<string, unknown>;
       const grounding = extractGeminiGrounding(payload);
       if (grounding.groundingUsed || grounding.sources.length > 0) {
         latestGrounding = grounding;
+        const nextSignature = getGroundingSignature(grounding);
+        if (nextSignature !== lastGroundingSignature) {
+          lastGroundingSignature = nextSignature;
+          events.push({ type: 'grounding', grounding });
+        }
       }
+
       const chunkText = extractGeminiTextChunk(payload);
-      return chunkText ? [chunkText] : [];
+      if (chunkText) {
+        events.push({ type: 'text', text: chunkText });
+      }
+
+      return events;
     };
 
     while (true) {
@@ -360,9 +380,9 @@ async function requestGeminiAnalysisStream(input: {
       buffer = parsed.remainder;
 
       for (const block of parsed.events) {
-        const chunks = processEventBlock(block);
-        for (const chunk of chunks) {
-          yield chunk;
+        const events = processEventBlock(block);
+        for (const event of events) {
+          yield event;
         }
       }
 
@@ -373,9 +393,9 @@ async function requestGeminiAnalysisStream(input: {
 
     const trailing = buffer.trim();
     if (trailing) {
-      const chunks = processEventBlock(trailing);
-      for (const chunk of chunks) {
-        yield chunk;
+      const events = processEventBlock(trailing);
+      for (const event of events) {
+        yield event;
       }
     }
   };
@@ -479,8 +499,10 @@ export async function analyzeImageWithGemini(
   const opened = await openGeminiAnalysisStream(input);
   let text = '';
 
-  for await (const chunk of opened.stream) {
-    text += chunk;
+  for await (const event of opened.stream) {
+    if (event.type === 'text') {
+      text += event.text;
+    }
   }
 
   if (!text.trim()) {

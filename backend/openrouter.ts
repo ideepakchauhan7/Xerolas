@@ -19,8 +19,12 @@ interface OpenRouterGroundingResult {
   sources: SourceLink[];
 }
 
+type OpenRouterStreamEvent =
+  | { type: 'text'; text: string }
+  | { type: 'grounding'; grounding: OpenRouterGroundingResult };
+
 interface OpenRouterOpenStreamResult {
-  stream: AsyncGenerator<string>;
+  stream: AsyncGenerator<OpenRouterStreamEvent>;
   model: string;
   getGrounding: () => OpenRouterGroundingResult;
 }
@@ -43,6 +47,10 @@ const EMPTY_GROUNDING: OpenRouterGroundingResult = {
   groundingUsed: false,
   sources: []
 };
+
+function getGroundingSignature(grounding: OpenRouterGroundingResult): string {
+  return [grounding.groundingUsed ? '1' : '0', ...grounding.sources.map((source) => source.url)].join('|');
+}
 
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -370,13 +378,34 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
   let latestSources: SourceLink[] = [];
   let webSearchRequests = 0;
   let emittedText = false;
+  let lastGroundingSignature = '';
 
-  const stream = async function* (): AsyncGenerator<string> {
+  const getGrounding = (): OpenRouterGroundingResult => ({
+    groundingUsed: webSearchRequests > 0 || latestSources.length > 0,
+    sources: latestSources
+  });
+
+  const createGroundingEvent = (): OpenRouterStreamEvent | null => {
+    const grounding = getGrounding();
+    if (!grounding.groundingUsed && !grounding.sources.length) {
+      return null;
+    }
+
+    const nextSignature = getGroundingSignature(grounding);
+    if (nextSignature === lastGroundingSignature) {
+      return null;
+    }
+
+    lastGroundingSignature = nextSignature;
+    return { type: 'grounding', grounding };
+  };
+
+  const stream = async function* (): AsyncGenerator<OpenRouterStreamEvent> {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
-    const processEventBlock = (block: string): string[] => {
+    const processEventBlock = (block: string): OpenRouterStreamEvent[] => {
       const dataLines = block
         .split('\n')
         .filter((line) => line.startsWith('data:'))
@@ -404,11 +433,17 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
       webSearchRequests = state.webSearchRequests;
 
       const choices = Array.isArray(payload.choices) ? payload.choices : [];
-      return choices.flatMap((choice) => {
+      const textEvents: OpenRouterStreamEvent[] = [];
+      choices.forEach((choice) => {
         const data = extractChoiceData(choice);
         latestSources = mergeSources(latestSources, data.sources);
-        return data.text ? [data.text] : [];
+        if (data.text) {
+          textEvents.push({ type: 'text', text: data.text });
+        }
       });
+
+      const groundingEvent = createGroundingEvent();
+      return groundingEvent ? [groundingEvent, ...textEvents] : textEvents;
     };
 
     while (true) {
@@ -418,12 +453,12 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
       buffer = parsed.remainder;
 
       for (const block of parsed.events) {
-        const chunks = processEventBlock(block);
-        for (const chunk of chunks) {
-          if (chunk.trim()) {
+        const events = processEventBlock(block);
+        for (const event of events) {
+          if (event.type === 'text' && event.text.trim()) {
             emittedText = true;
           }
-          yield chunk;
+          yield event;
         }
       }
 
@@ -434,12 +469,12 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
 
     const trailing = buffer.trim();
     if (trailing) {
-      const chunks = processEventBlock(trailing);
-      for (const chunk of chunks) {
-        if (chunk.trim()) {
+      const events = processEventBlock(trailing);
+      for (const event of events) {
+        if (event.type === 'text' && event.text.trim()) {
           emittedText = true;
         }
-        yield chunk;
+        yield event;
       }
     }
 
@@ -449,22 +484,24 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
       latestSources = mergeSources(latestSources, completion.grounding.sources);
       webSearchRequests += completion.grounding.groundingUsed ? 1 : 0;
 
+      const groundingEvent = createGroundingEvent();
+      if (groundingEvent) {
+        yield groundingEvent;
+      }
+
       if (!completion.text) {
         throw new Error('OpenRouter returned no text for this image.');
       }
 
       emittedText = true;
-      yield completion.text;
+      yield { type: 'text', text: completion.text };
     }
   };
 
   return {
     stream: stream(),
     model: latestModel,
-    getGrounding: () => ({
-      groundingUsed: webSearchRequests > 0 || latestSources.length > 0,
-      sources: latestSources
-    })
+    getGrounding
   };
 }
 
@@ -478,8 +515,10 @@ export async function analyzeImageWithOpenRouter(
   const opened = await requestOpenRouterStream(input);
   let text = '';
 
-  for await (const chunk of opened.stream) {
-    text += chunk;
+  for await (const event of opened.stream) {
+    if (event.type === 'text') {
+      text += event.text;
+    }
   }
 
   if (!text.trim()) {
