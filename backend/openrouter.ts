@@ -25,6 +25,12 @@ interface OpenRouterOpenStreamResult {
   getGrounding: () => OpenRouterGroundingResult;
 }
 
+interface OpenRouterCompletionResult {
+  text: string;
+  model: string;
+  grounding: OpenRouterGroundingResult;
+}
+
 interface UrlCitationAnnotation {
   type?: string;
   url_citation?: {
@@ -265,6 +271,81 @@ function parseSseBuffer(buffer: string): {
   };
 }
 
+function updateMetadataFromPayload(
+  payload: Record<string, unknown>,
+  state: { model: string; sources: SourceLink[]; webSearchRequests: number }
+): void {
+  if (typeof payload.model === 'string' && payload.model.trim()) {
+    state.model = payload.model.trim();
+  }
+
+  state.webSearchRequests += getWebSearchRequestCount(payload);
+}
+
+function extractChoiceData(choice: unknown): { text: string; sources: SourceLink[] } {
+  if (!choice || typeof choice !== 'object') {
+    return { text: '', sources: [] };
+  }
+
+  const rawChoice = choice as {
+    delta?: { content?: unknown; annotations?: unknown };
+    message?: { content?: unknown; annotations?: unknown };
+  };
+  const annotations = [rawChoice.delta?.annotations, rawChoice.message?.annotations]
+    .filter(Array.isArray)
+    .flat() as unknown[];
+
+  return {
+    text: extractTextContent(rawChoice.delta?.content ?? rawChoice.message?.content),
+    sources: normalizeSources(annotations)
+  };
+}
+
+async function requestOpenRouterCompletion(input: AnalyzeImageInput): Promise<OpenRouterCompletionResult> {
+  const response = await fetch(OPENROUTER_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://xerolas.vercel.app',
+      'X-Title': 'Xerolas'
+    },
+    body: createRequestBody(input, false)
+  });
+
+  if (!response.ok) {
+    await parseProviderError(response);
+  }
+
+  const payload = (await response.json()) as Record<string, unknown>;
+  const state = {
+    model: input.model,
+    sources: [] as SourceLink[],
+    webSearchRequests: 0
+  };
+  updateMetadataFromPayload(payload, state);
+
+  const choices = Array.isArray(payload.choices) ? payload.choices : [];
+  const textParts: string[] = [];
+
+  choices.forEach((choice) => {
+    const data = extractChoiceData(choice);
+    if (data.text) {
+      textParts.push(data.text);
+    }
+    state.sources = mergeSources(state.sources, data.sources);
+  });
+
+  return {
+    text: textParts.join('').trim(),
+    model: state.model,
+    grounding: {
+      groundingUsed: state.webSearchRequests > 0 || state.sources.length > 0,
+      sources: state.sources
+    }
+  };
+}
+
 async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRouterOpenStreamResult> {
   const response = await fetch(OPENROUTER_ENDPOINT, {
     method: 'POST',
@@ -288,6 +369,7 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
   let latestModel = input.model;
   let latestSources: SourceLink[] = [];
   let webSearchRequests = 0;
+  let emittedText = false;
 
   const stream = async function* (): AsyncGenerator<string> {
     const reader = response.body!.getReader();
@@ -311,29 +393,21 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
       }
 
       const payload = JSON.parse(payloadText) as Record<string, unknown>;
-      if (typeof payload.model === 'string' && payload.model.trim()) {
-        latestModel = payload.model.trim();
-      }
-
-      webSearchRequests += getWebSearchRequestCount(payload);
+      const state = {
+        model: latestModel,
+        sources: latestSources,
+        webSearchRequests
+      };
+      updateMetadataFromPayload(payload, state);
+      latestModel = state.model;
+      latestSources = state.sources;
+      webSearchRequests = state.webSearchRequests;
 
       const choices = Array.isArray(payload.choices) ? payload.choices : [];
       return choices.flatMap((choice) => {
-        if (!choice || typeof choice !== 'object') {
-          return [];
-        }
-
-        const rawChoice = choice as {
-          delta?: { content?: unknown; annotations?: unknown };
-          message?: { content?: unknown; annotations?: unknown };
-        };
-        const annotations = [rawChoice.delta?.annotations, rawChoice.message?.annotations]
-          .filter(Array.isArray)
-          .flat() as unknown[];
-        latestSources = mergeSources(latestSources, normalizeSources(annotations));
-
-        const content = extractTextContent(rawChoice.delta?.content ?? rawChoice.message?.content);
-        return content ? [content] : [];
+        const data = extractChoiceData(choice);
+        latestSources = mergeSources(latestSources, data.sources);
+        return data.text ? [data.text] : [];
       });
     };
 
@@ -346,6 +420,9 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
       for (const block of parsed.events) {
         const chunks = processEventBlock(block);
         for (const chunk of chunks) {
+          if (chunk.trim()) {
+            emittedText = true;
+          }
           yield chunk;
         }
       }
@@ -359,8 +436,25 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
     if (trailing) {
       const chunks = processEventBlock(trailing);
       for (const chunk of chunks) {
+        if (chunk.trim()) {
+          emittedText = true;
+        }
         yield chunk;
       }
+    }
+
+    if (!emittedText) {
+      const completion = await requestOpenRouterCompletion(input);
+      latestModel = completion.model;
+      latestSources = mergeSources(latestSources, completion.grounding.sources);
+      webSearchRequests += completion.grounding.groundingUsed ? 1 : 0;
+
+      if (!completion.text) {
+        throw new Error('OpenRouter returned no text for this image.');
+      }
+
+      emittedText = true;
+      yield completion.text;
     }
   };
 
