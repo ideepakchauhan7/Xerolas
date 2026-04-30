@@ -459,7 +459,12 @@ async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<Gemin
     }
   }
 
-  throw new Error('Xerolas is temporarily waiting for Gemini capacity. Please try again in a moment.');
+  throw new ProviderRequestError(
+    'gemini',
+    503,
+    'Xerolas is temporarily waiting for Gemini capacity. Please try again in a moment.',
+    true
+  );
 }
 
 export async function streamImageWithGemini(
