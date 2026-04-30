@@ -12,7 +12,7 @@ const FAQ_ITEMS = [
   {
     question: "Do I need an API key or account?",
     answer:
-      "No. You do not need a Google account or your own API key. Xerolas handles the AI request path for you so the app works right after install.",
+      "No. You do not need a model account or your own API key. Xerolas handles the AI request path for you so the app works right after install.",
   },
   {
     question: "Is my screen data private?",
@@ -20,9 +20,9 @@ const FAQ_ITEMS = [
       "Only the region you explicitly select is sent for analysis. Xerolas is not continuously monitoring your desktop, and your local history stays on your device.",
   },
   {
-    question: "Which AI model does Xerolas use?",
+    question: "What powers Xerolas analysis?",
     answer:
-      "Xerolas currently uses Google Gemini for screenshot understanding and answer generation.",
+      "Xerolas uses cloud AI vision models for screenshot understanding and answer generation.",
   },
   {
     question: "Does it work on all three platforms?",
@@ -33,6 +33,11 @@ const FAQ_ITEMS = [
     question: "How do updates work?",
     answer:
       "Xerolas checks for updates in the background and uses the bundled update feed from the public downloads release channel.",
+  },
+  {
+    question: "Does Xerolas use web search?",
+    answer:
+      "Yes. When live context would help, Xerolas can use web search and show source links in the result panel. Simple visual tasks still answer directly.",
   },
   {
     question: "Can I customize what the AI does?",

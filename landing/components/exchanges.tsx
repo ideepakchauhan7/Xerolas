@@ -27,10 +27,10 @@ export function Exchanges() {
               Comparison
             </p>
             <h2 className="font-heading text-2xl sm:text-4xl font-bold text-white mb-3">
-              Xerolas vs Google Lens
+              Xerolas vs browser lens tools
             </h2>
             <p className="text-neutral-500 text-sm sm:text-base max-w-2xl mx-auto">
-              Google Lens is useful inside Chrome. Xerolas brings that same kind of screen understanding to the whole desktop.
+              Browser lens tools are useful inside one tab. Xerolas brings that same kind of screen understanding to the whole desktop.
             </p>
           </div>
         </BlurFade>
@@ -47,7 +47,7 @@ export function Exchanges() {
                     {row.name}
                   </div>
                   <div className="text-xs text-neutral-500 mt-1">
-                    Google Lens: <span className="text-neutral-400">{row.lens}</span>
+                    Browser lens: <span className="text-neutral-400">{row.lens}</span>
                   </div>
                 </div>
                 <div className="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">

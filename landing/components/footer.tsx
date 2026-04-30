@@ -69,7 +69,7 @@ export function Footer() {
           </p>
           <div className="flex items-center gap-4">
             <p className="text-xs text-neutral-600">
-              No account required · Powered by Google Gemini · Built for desktop capture
+              No account required · AI-powered analysis · Built for desktop capture
             </p>
           </div>
         </div>

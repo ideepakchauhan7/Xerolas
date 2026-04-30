@@ -22,7 +22,7 @@ export function SocialProof() {
 
             <div className="max-w-3xl">
               <div className="text-sm font-medium text-white mb-3">
-                Google Lens is great. But it&apos;s stuck inside Chrome.
+                Browser lens tools are useful. But they&apos;re stuck inside the browser.
               </div>
               <div className="text-sm text-neutral-500 leading-relaxed sm:text-base">
                 You&apos;re working in VS Code, Figma, Notion, Slack, Excel, or a PDF and you want to understand something on your screen. Without Xerolas, you switch apps, take a screenshot, open a browser tab, upload the image, and wait. Xerolas fixes that with one shortcut, any window, and an instant answer beside your capture.

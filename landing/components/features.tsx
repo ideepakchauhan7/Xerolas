@@ -31,7 +31,7 @@ const FEATURES = [
     ),
     title: "Get your answer instantly",
     description:
-      "Xerolas sends only the selected region to Google Gemini and returns the result in a clean panel right on your desktop.",
+      "Xerolas analyzes the selected region and can add live web context when the answer needs current information. When web search is used, source links appear in the result panel.",
   },
   {
     icon: (

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     "screen intelligence",
     "OCR desktop tool",
     "cross platform desktop app",
-    "Google Lens alternative",
+    "desktop lens alternative",
   ],
   authors: [{ name: "Xerolas" }],
   openGraph: {
