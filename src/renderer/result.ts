@@ -17,6 +17,8 @@ const groundingBadge = document.getElementById('grounding-badge') as HTMLDivElem
 const searchingBadge = document.getElementById('searching-badge') as HTMLDivElement;
 const sourcesSection = document.getElementById('result-sources') as HTMLElement;
 const sourcesList = document.getElementById('result-sources-list') as HTMLUListElement;
+const askedQuestionDisplay = document.getElementById('ask-question-display') as HTMLElement;
+const askedQuestionText = document.getElementById('ask-question-display-text') as HTMLParagraphElement;
 const resultAskEntry = document.getElementById('result-ask-entry') as HTMLButtonElement;
 const askQuestionComposer = document.getElementById('ask-question-composer') as HTMLElement;
 const askQuestionInput = document.getElementById('ask-question-input') as HTMLTextAreaElement;
@@ -28,6 +30,7 @@ let currentResult: AnalysisResult | null = null;
 let currentStream: ResultStreamState | null = null;
 let askQuestionState: AskQuestionState = {
   questionText: '',
+  submittedQuestionText: '',
   isQuestionComposerOpen: false,
   isSubmitting: false,
   hasCaptureContext: false
@@ -151,11 +154,15 @@ function scheduleLayoutHeightReport(): void {
     const pagePadding = parseFloat(pageStyles.paddingTop) + parseFloat(pageStyles.paddingBottom);
     const cardPadding = parseFloat(cardStyles.paddingTop) + parseFloat(cardStyles.paddingBottom);
     const shellGap = parseFloat(shellStyles.rowGap || shellStyles.gap || '0');
+    const questionHeight = askedQuestionDisplay.hidden ? 0 : askedQuestionDisplay.scrollHeight;
+    const groundingHeight = groundingBadge.hidden ? 0 : groundingBadge.scrollHeight;
     const composerHeight = askQuestionComposer.hidden ? 0 : askQuestionComposer.scrollHeight;
     const sourcesHeight = sourcesSection.hidden ? 0 : sourcesSection.scrollHeight;
     const askEntryHeight = resultAskEntry.hidden ? 0 : resultAskEntry.scrollHeight;
     const sectionCount =
       2 +
+      (askedQuestionDisplay.hidden ? 0 : 1) +
+      (groundingBadge.hidden ? 0 : 1) +
       (askQuestionComposer.hidden ? 0 : 1) +
       (sourcesSection.hidden ? 0 : 1) +
       (resultAskEntry.hidden ? 0 : 1);
@@ -163,6 +170,8 @@ function scheduleLayoutHeightReport(): void {
       pagePadding +
         cardPadding +
         resultTopbar.getBoundingClientRect().height +
+        questionHeight +
+        groundingHeight +
         composerHeight +
         getElementContentHeight(resultText) +
         sourcesHeight +
@@ -196,6 +205,8 @@ function clearGroundingInfo(): void {
   searchingBadge.hidden = true;
   quickActions.hidden = false;
   groundingBadge.hidden = true;
+  askedQuestionDisplay.hidden = true;
+  askedQuestionText.textContent = '';
   sourcesSection.hidden = true;
   sourcesList.innerHTML = '';
   resultAskEntry.hidden = true;
@@ -246,6 +257,16 @@ function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): voi
     sourcesList.appendChild(item);
   });
 
+  scheduleLayoutHeightReport();
+}
+
+function renderSubmittedQuestion(): void {
+  const activeQuickActionId = currentStream?.quickActionId ?? currentResult?.quickActionId ?? null;
+  const questionText = askQuestionState.submittedQuestionText.trim();
+  const shouldShow = Boolean(activeQuickActionId === 'ask' && questionText && !askQuestionState.isQuestionComposerOpen);
+
+  askedQuestionDisplay.hidden = !shouldShow;
+  askedQuestionText.textContent = shouldShow ? questionText : '';
   scheduleLayoutHeightReport();
 }
 
@@ -458,6 +479,7 @@ function renderResult(result: AnalysisResult): void {
   currentStream = null;
   renderQuickActions(getActiveQuickActionId());
   renderAskQuestionComposer();
+  renderSubmittedQuestion();
   renderStructuredText(result.text);
   renderGroundingInfo(result.groundingUsed, result.sources);
   renderAskEntry();
@@ -469,6 +491,7 @@ function renderStreamState(state: ResultStreamState): void {
   setSearchingBadgeVisible(isWaitingForFirstToken(state));
   renderQuickActions(getActiveQuickActionId());
   renderAskQuestionComposer();
+  renderSubmittedQuestion();
   renderAskEntry();
   targetStreamText = state.text;
   if (displayedStreamText.length > targetStreamText.length) {
@@ -488,6 +511,7 @@ function renderEmptyState(): void {
   resultText.style.whiteSpace = '';
   resultText.classList.remove('is-streaming');
   clearGroundingInfo();
+  renderSubmittedQuestion();
   appendParagraph(
     resultText,
     getActiveQuickActionId() === 'ask' && askQuestionState.hasCaptureContext
@@ -553,6 +577,7 @@ window.desktopAssistant.onAskQuestionState((state) => {
   if (currentStream) {
     renderQuickActions(getActiveQuickActionId());
     renderAskQuestionComposer();
+    renderSubmittedQuestion();
     renderAskEntry();
     return;
   }
@@ -560,6 +585,7 @@ window.desktopAssistant.onAskQuestionState((state) => {
   if (currentResult) {
     renderQuickActions(getActiveQuickActionId());
     renderAskQuestionComposer();
+    renderSubmittedQuestion();
     renderAskEntry();
     scheduleLayoutHeightReport();
     return;
