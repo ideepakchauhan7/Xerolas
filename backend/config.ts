@@ -3,6 +3,10 @@ export interface CloudflareWorkerBindings {
   CONTEXT_AI_GEMINI_API_KEY?: string;
   CONTEXT_AI_GEMINI_MODEL?: string;
   CONTEXT_AI_GEMINI_FALLBACK_MODEL?: string;
+  OPENROUTER_API_KEY?: string;
+  CONTEXT_AI_OPENROUTER_API_KEY?: string;
+  CONTEXT_AI_OPENROUTER_MODEL?: string;
+  CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH?: string;
   CONTEXT_AI_SESSION_SECRET?: string;
   CONTEXT_AI_SESSION_TTL_SECONDS?: string;
   REPLAY_NONCE_COORDINATOR?: DurableObjectNamespaceLike;
@@ -34,6 +38,9 @@ export interface ServerConfig {
   geminiApiKey: string;
   geminiModel: string;
   geminiFallbackModel: string;
+  openRouterApiKey: string;
+  openRouterModel: string;
+  openRouterEnableWebSearch: boolean;
   sessionSecret: string;
   sessionTtlSeconds: number;
   tlsCertPath: string;
@@ -138,6 +145,18 @@ export function createWorkerRuntimeContext(
     geminiFallbackModel: (bindings.CONTEXT_AI_GEMINI_FALLBACK_MODEL ?? 'gemini-2.5-flash-lite')
       .toString()
       .trim(),
+    openRouterApiKey: (
+      bindings.OPENROUTER_API_KEY ??
+      bindings.CONTEXT_AI_OPENROUTER_API_KEY ??
+      ''
+    )
+      .toString()
+      .trim(),
+    openRouterModel: (bindings.CONTEXT_AI_OPENROUTER_MODEL ?? 'openrouter/free').toString().trim(),
+    openRouterEnableWebSearch: (bindings.CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH ?? '')
+      .toString()
+      .trim()
+      .toLowerCase() === 'true',
     sessionSecret: (bindings.CONTEXT_AI_SESSION_SECRET ?? '').toString().trim(),
     sessionTtlSeconds: Math.max(
       60,

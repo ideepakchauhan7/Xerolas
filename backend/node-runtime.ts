@@ -54,6 +54,29 @@ function createNodeServerConfig(): ServerConfig {
     )
       .toString()
       .trim(),
+    openRouterApiKey: (
+      process.env.OPENROUTER_API_KEY ??
+      process.env.CONTEXT_AI_OPENROUTER_API_KEY ??
+      localConfig.openRouterApiKey ??
+      ''
+    )
+      .toString()
+      .trim(),
+    openRouterModel: (
+      process.env.CONTEXT_AI_OPENROUTER_MODEL ??
+      localConfig.openRouterModel ??
+      'openrouter/free'
+    )
+      .toString()
+      .trim(),
+    openRouterEnableWebSearch: (
+      process.env.CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH ??
+      localConfig.openRouterEnableWebSearch ??
+      false
+    )
+      .toString()
+      .trim()
+      .toLowerCase() === 'true',
     sessionSecret: (
       process.env.CONTEXT_AI_SESSION_SECRET ??
       localConfig.sessionSecret ??

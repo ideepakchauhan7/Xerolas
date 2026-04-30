@@ -1,5 +1,8 @@
 import type { BackendRuntimeContext } from './config';
 import { analyzeImageWithGemini, streamImageWithGemini } from './gemini';
+import { analyzeImageWithOpenRouter, streamImageWithOpenRouter } from './openrouter';
+import { isCapacityErrorMessage, isRetryableProviderError } from './provider-error';
+import type { SourceLink } from '../src/shared/types';
 import {
   authorizeAnalyzeRequest,
   issueSessionToken,
@@ -18,6 +21,23 @@ interface AnalyzeRequestPayload {
   question?: string;
   imageMimeType: string;
   imageBase64Data: string;
+}
+
+interface ProviderAnalysisResult {
+  text: string;
+  provider: string;
+  model: string;
+  usedFallback: boolean;
+  groundingUsed: boolean;
+  sources: SourceLink[];
+}
+
+interface ProviderStreamResult {
+  provider: string;
+  model: string;
+  usedFallback: boolean;
+  stream: AsyncGenerator<string>;
+  getGrounding: () => { groundingUsed: boolean; sources: SourceLink[] };
 }
 
 function json(status: number, payload: JsonRecord): Response {
@@ -145,6 +165,125 @@ function getAnalyzeErrorStatus(message: string): number {
         : 502;
 }
 
+function hasAnalysisProvider(context: BackendRuntimeContext): boolean {
+  return Boolean(context.config.geminiApiKey || context.config.openRouterApiKey);
+}
+
+function shouldTryOpenRouterFallback(error: unknown): boolean {
+  return (
+    isRetryableProviderError(error) ||
+    (error instanceof Error && isCapacityErrorMessage(error.message))
+  );
+}
+
+function getMissingProviderMessage(): string {
+  return 'Configure GEMINI_API_KEY or OPENROUTER_API_KEY before using analysis.';
+}
+
+async function analyzeWithConfiguredProviders(
+  context: BackendRuntimeContext,
+  payload: AnalyzeRequestPayload
+): Promise<ProviderAnalysisResult> {
+  let geminiError: unknown = null;
+
+  if (context.config.geminiApiKey) {
+    try {
+      const analysis = await analyzeImageWithGemini({
+        apiKey: context.config.geminiApiKey,
+        primaryModel: context.config.geminiModel,
+        fallbackModel: context.config.geminiFallbackModel,
+        promptTemplate: payload.promptTemplate,
+        question: payload.question,
+        imageMimeType: payload.imageMimeType,
+        imageBase64Data: payload.imageBase64Data
+      });
+
+      return {
+        ...analysis,
+        provider: 'gemini'
+      };
+    } catch (error) {
+      if (!context.config.openRouterApiKey || !shouldTryOpenRouterFallback(error)) {
+        throw error;
+      }
+
+      geminiError = error;
+    }
+  }
+
+  if (!context.config.openRouterApiKey) {
+    throw geminiError instanceof Error ? geminiError : new Error(getMissingProviderMessage());
+  }
+
+  const analysis = await analyzeImageWithOpenRouter({
+    apiKey: context.config.openRouterApiKey,
+    model: context.config.openRouterModel,
+    enableWebSearch: context.config.openRouterEnableWebSearch,
+    promptTemplate: payload.promptTemplate,
+    question: payload.question,
+    imageMimeType: payload.imageMimeType,
+    imageBase64Data: payload.imageBase64Data
+  });
+
+  return {
+    ...analysis,
+    provider: 'openrouter',
+    usedFallback: Boolean(geminiError || context.config.geminiApiKey)
+  };
+}
+
+async function openStreamWithConfiguredProviders(
+  context: BackendRuntimeContext,
+  payload: AnalyzeRequestPayload
+): Promise<ProviderStreamResult> {
+  let geminiError: unknown = null;
+
+  if (context.config.geminiApiKey) {
+    try {
+      const opened = await streamImageWithGemini({
+        apiKey: context.config.geminiApiKey,
+        primaryModel: context.config.geminiModel,
+        fallbackModel: context.config.geminiFallbackModel,
+        promptTemplate: payload.promptTemplate,
+        question: payload.question,
+        imageMimeType: payload.imageMimeType,
+        imageBase64Data: payload.imageBase64Data
+      });
+
+      return {
+        ...opened,
+        provider: 'gemini'
+      };
+    } catch (error) {
+      if (!context.config.openRouterApiKey || !shouldTryOpenRouterFallback(error)) {
+        throw error;
+      }
+
+      geminiError = error;
+    }
+  }
+
+  if (!context.config.openRouterApiKey) {
+    throw geminiError instanceof Error ? geminiError : new Error(getMissingProviderMessage());
+  }
+
+  const opened = await streamImageWithOpenRouter({
+    apiKey: context.config.openRouterApiKey,
+    model: context.config.openRouterModel,
+    enableWebSearch: context.config.openRouterEnableWebSearch,
+    promptTemplate: payload.promptTemplate,
+    question: payload.question,
+    imageMimeType: payload.imageMimeType,
+    imageBase64Data: payload.imageBase64Data
+  });
+
+  return {
+    ...opened,
+    provider: 'openrouter',
+    usedFallback: Boolean(geminiError || context.config.geminiApiKey)
+  };
+}
+
 async function handleSessionBootstrap(
   request: Request,
   context: BackendRuntimeContext
@@ -176,28 +315,20 @@ async function handleAnalyze(
   request: Request,
   context: BackendRuntimeContext
 ): Promise<Response> {
-  if (!context.config.geminiApiKey) {
+  if (!hasAnalysisProvider(context)) {
     return json(503, {
-      message: 'Configure GEMINI_API_KEY before using analysis.'
+      message: getMissingProviderMessage()
     });
   }
 
   try {
     await authorizeAnalyzeRequest(request, context);
     const payload = await readAnalyzeRequest(request);
-    const analysis = await analyzeImageWithGemini({
-      apiKey: context.config.geminiApiKey,
-      primaryModel: context.config.geminiModel,
-      fallbackModel: context.config.geminiFallbackModel,
-      promptTemplate: payload.promptTemplate,
-      question: payload.question,
-      imageMimeType: payload.imageMimeType,
-      imageBase64Data: payload.imageBase64Data
-    });
+    const analysis = await analyzeWithConfiguredProviders(context, payload);
 
     return json(200, {
       text: analysis.text,
-      provider: 'gemini',
+      provider: analysis.provider,
       model: analysis.model,
       quickActionId: payload.quickActionId,
       usedFallback: analysis.usedFallback,
@@ -216,24 +347,16 @@ async function handleAnalyzeStream(
   request: Request,
   context: BackendRuntimeContext
 ): Promise<Response> {
-  if (!context.config.geminiApiKey) {
+  if (!hasAnalysisProvider(context)) {
     return json(503, {
-      message: 'Configure GEMINI_API_KEY before using analysis.'
+      message: getMissingProviderMessage()
     });
   }
 
   try {
     await authorizeAnalyzeRequest(request, context);
     const payload = await readAnalyzeRequest(request);
-    const opened = await streamImageWithGemini({
-      apiKey: context.config.geminiApiKey,
-      primaryModel: context.config.geminiModel,
-      fallbackModel: context.config.geminiFallbackModel,
-      promptTemplate: payload.promptTemplate,
-      question: payload.question,
-      imageMimeType: payload.imageMimeType,
-      imageBase64Data: payload.imageBase64Data
-    });
+    const opened = await openStreamWithConfiguredProviders(context, payload);
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
@@ -243,7 +366,7 @@ async function handleAnalyzeStream(
         controller.enqueue(
           encoder.encode(
             encodeSseEvent('meta', {
-              provider: 'gemini',
+              provider: opened.provider,
               model: opened.model,
               quickActionId: payload.quickActionId,
               usedFallback: opened.usedFallback
@@ -271,7 +394,7 @@ async function handleAnalyzeStream(
             encoder.encode(
               encodeSseEvent('complete', {
                 text: aggregateText,
-                provider: 'gemini',
+                provider: opened.provider,
                 model: opened.model,
                 quickActionId: payload.quickActionId,
                 usedFallback: opened.usedFallback,
@@ -337,6 +460,9 @@ export async function handleBackendRequest(
       geminiConfigured: Boolean(context.config.geminiApiKey),
       geminiModel: context.config.geminiModel,
       geminiFallbackModel: context.config.geminiFallbackModel,
+      openRouterConfigured: Boolean(context.config.openRouterApiKey),
+      openRouterModel: context.config.openRouterModel,
+      openRouterWebSearchEnabled: context.config.openRouterEnableWebSearch,
       sessionConfigured: Boolean(context.config.sessionSecret),
       replayProtectionMode: context.replayProtector.mode
     });

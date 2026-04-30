@@ -41,6 +41,18 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put CONTEXT_AI_SESSION_SECRET
 ```
 
+Optional free-model fallback when Gemini is at capacity:
+
+```bash
+npx wrangler secret put OPENROUTER_API_KEY
+```
+
+By default the OpenRouter fallback uses `openrouter/free` without OpenRouter web search. Official OpenRouter docs say web search can incur extra costs even with free models, so only enable it if you intentionally accept that tradeoff:
+
+```bash
+npx wrangler secret put CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH # set to true
+```
+
 Deploy:
 
 ```bash

@@ -77,10 +77,13 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put CONTEXT_AI_SESSION_SECRET
 ```
 
-Optional variables:
+Optional Gemini/OpenRouter fallback settings:
 
 - `CONTEXT_AI_GEMINI_MODEL`
 - `CONTEXT_AI_GEMINI_FALLBACK_MODEL`
+- `OPENROUTER_API_KEY` for the free `openrouter/free` fallback when Gemini is at capacity
+- `CONTEXT_AI_OPENROUTER_MODEL` defaults to `openrouter/free`
+- `CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH` defaults to `false`; OpenRouter web search may incur extra cost even with free models, so enable only intentionally
 - `CONTEXT_AI_SESSION_TTL_SECONDS`
 
 ### 3. GitHub token for cross-repo releases
