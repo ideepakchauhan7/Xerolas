@@ -225,12 +225,16 @@ function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): voi
       await window.desktopAssistant.openExternalLink(source.url);
     });
 
-    const host = document.createElement('span');
-    host.className = 'result-source-host';
-    host.textContent = source.host;
+    const normalizedTitle = source.title.trim().toLowerCase();
+    const normalizedHost = source.host.trim().toLowerCase();
 
     item.appendChild(link);
-    item.appendChild(host);
+    if (normalizedHost && normalizedHost !== normalizedTitle) {
+      const host = document.createElement('span');
+      host.className = 'result-source-host';
+      host.textContent = source.host;
+      item.appendChild(host);
+    }
     sourcesList.appendChild(item);
   });
 
