@@ -1630,15 +1630,15 @@ async function analyzeExistingImage(
           });
         },
         onSearch: ({ webSearchInProgress: nextWebSearchInProgress }) => {
-          if (!isCaptureSessionActive(captureSessionId) || !nextWebSearchInProgress) {
+          if (!isCaptureSessionActive(captureSessionId) || !nextWebSearchInProgress || activeStreamText) {
             return;
           }
 
           webSearchInProgress = true;
           pushResultStreamState({
-            status: activeStreamText ? 'streaming' : 'loading',
+            status: 'loading',
             quickActionId,
-            text: activeStreamText,
+            text: '',
             message: 'Searching the web…',
             selection,
             webSearchInProgress
@@ -1650,25 +1650,26 @@ async function analyzeExistingImage(
           }
 
           activeStreamText = text;
+          webSearchInProgress = false;
           pushResultStreamState({
             status: 'streaming',
             quickActionId,
             text,
             message: null,
             selection,
-            webSearchInProgress
+            webSearchInProgress: false
           });
         },
         onGrounding: ({ groundingUsed, sources }) => {
-          if (!isCaptureSessionActive(captureSessionId) || (!groundingUsed && !sources.length)) {
+          if (!isCaptureSessionActive(captureSessionId) || (!groundingUsed && !sources.length) || activeStreamText) {
             return;
           }
 
           webSearchInProgress = true;
           pushResultStreamState({
-            status: activeStreamText ? 'streaming' : 'loading',
+            status: 'loading',
             quickActionId,
-            text: activeStreamText,
+            text: '',
             message: 'Searching the web…',
             selection,
             webSearchInProgress
