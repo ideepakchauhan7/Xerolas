@@ -113,6 +113,7 @@ let latestAnalysis: AnalysisResult | null = null;
 let currentResultStream: ResultStreamState | null = null;
 let activeCaptureContext: ActiveCaptureContext | null = null;
 let askQuestionDraft = '';
+let askQuestionSubmittedText = '';
 let askQuestionComposerOpen = false;
 let askQuestionSubmitting = false;
 let overlayPayload: OverlayPayload | null = null;
@@ -443,6 +444,7 @@ function getActiveResultSelection(): SelectionPayload | null {
 function buildAskQuestionState(): AskQuestionState {
   return {
     questionText: askQuestionDraft,
+    submittedQuestionText: askQuestionSubmittedText,
     isQuestionComposerOpen: askQuestionComposerOpen,
     isSubmitting: askQuestionSubmitting,
     hasCaptureContext: Boolean(getReusableCaptureContext())
@@ -490,6 +492,7 @@ function setAskQuestionComposerClosed(clearDraft = false): void {
   askQuestionSubmitting = false;
   if (clearDraft) {
     askQuestionDraft = '';
+    askQuestionSubmittedText = '';
   }
   broadcastAskQuestionState();
 }
@@ -1774,6 +1777,7 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
   if (captureQuickActionId === 'ask') {
     await clearActiveResultState({ hideWindow: false });
     askQuestionDraft = '';
+    askQuestionSubmittedText = '';
     askQuestionComposerOpen = true;
     askQuestionSubmitting = false;
     broadcastAskQuestionState();
@@ -1848,13 +1852,16 @@ async function submitAskQuestion(questionText: string): Promise<void> {
   }
 
   askQuestionDraft = questionText;
-  askQuestionComposerOpen = true;
+  askQuestionSubmittedText = trimmedQuestion;
+  askQuestionComposerOpen = false;
   askQuestionSubmitting = true;
   broadcastAskQuestionState();
 
   currentCapturePerfSession = createPerfSession(`ask:${Date.now()}`);
   captureInProgress = true;
   broadcastState();
+
+  let completed = false;
 
   try {
     markCapturePerf('triggered', {
@@ -1874,11 +1881,18 @@ async function submitAskQuestion(questionText: string): Promise<void> {
         question: trimmedQuestion
       }
     );
+    completed = true;
   } catch (error) {
+    askQuestionSubmittedText = '';
+    askQuestionComposerOpen = true;
     setError(error);
     showCaptureFailure(error);
   } finally {
     askQuestionSubmitting = false;
+    if (completed) {
+      askQuestionDraft = '';
+      askQuestionComposerOpen = false;
+    }
     broadcastAskQuestionState();
     captureInProgress = false;
     broadcastState();

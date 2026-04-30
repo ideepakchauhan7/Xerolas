@@ -92,6 +92,7 @@ export interface ResultStreamState {
 
 export interface AskQuestionState {
   questionText: string;
+  submittedQuestionText: string;
   isQuestionComposerOpen: boolean;
   isSubmitting: boolean;
   hasCaptureContext: boolean;

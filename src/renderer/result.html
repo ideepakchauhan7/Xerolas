@@ -20,15 +20,24 @@
         <div class="result-topbar">
           <nav id="quick-actions" class="result-mini-actions" aria-label="Result modes"></nav>
           <div id="searching-badge" class="result-searching-badge" hidden>Searching...</div>
-          <div id="grounding-badge" class="result-grounding-badge" hidden>Web search used</div>
         </div>
+        <section id="ask-question-display" class="result-asked-question" hidden>
+          <span class="result-asked-question-label">You asked</span>
+          <p id="ask-question-display-text" class="result-asked-question-text"></p>
+        </section>
+        <div id="grounding-badge" class="result-grounding-badge" hidden>Web search used</div>
+        <article id="result-text" class="result-body-copy result-body-copy--minimal"></article>
+        <section id="result-sources" class="result-sources" hidden>
+          <h2 class="result-sources-title">Sources</h2>
+          <ul id="result-sources-list" class="result-sources-list"></ul>
+        </section>
         <section id="ask-question-composer" class="result-ask-composer" hidden>
-          <label for="ask-question-input" class="result-ask-label">Ask about this capture</label>
+          <label for="ask-question-input" class="result-ask-label">Ask anything</label>
           <textarea
             id="ask-question-input"
             class="result-ask-textarea"
             rows="3"
-            placeholder="Ask a question about the captured content…"
+            placeholder="Type your question here…"
           ></textarea>
           <div class="result-ask-footer">
             <p id="ask-question-helper" class="result-ask-helper">
@@ -43,11 +52,6 @@
               </button>
             </div>
           </div>
-        </section>
-        <article id="result-text" class="result-body-copy result-body-copy--minimal"></article>
-        <section id="result-sources" class="result-sources" hidden>
-          <h2 class="result-sources-title">Sources</h2>
-          <ul id="result-sources-list" class="result-sources-list"></ul>
         </section>
         <button id="result-ask-entry" class="result-ask-entry" type="button" hidden>Ask Anything?</button>
       </section>
