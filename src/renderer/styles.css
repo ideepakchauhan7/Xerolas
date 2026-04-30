@@ -1013,24 +1013,32 @@ button {
   }
 }
 
+
 .settings-page {
-  padding: 16px;
+  height: 100%;
+  padding: 10px;
 }
 
 .settings-shell {
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 34px;
-  padding: 28px;
-  overflow: auto;
-  display: grid;
-  gap: 18px;
+  min-height: 0;
+  border-radius: 30px;
+  padding: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  -webkit-app-region: drag;
   background:
-    radial-gradient(circle at 8% 0%, rgba(167, 139, 250, 0.16), transparent 28%),
-    radial-gradient(circle at 100% 10%, rgba(96, 165, 250, 0.14), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.016)),
-    rgba(7, 7, 7, 0.97);
+    linear-gradient(180deg, rgba(8, 8, 8, 0.28), rgba(8, 8, 8, 0.68)),
+    radial-gradient(circle at 12% 0%, rgba(167, 139, 250, 0.12), transparent 28%),
+    radial-gradient(circle at 100% 10%, rgba(96, 165, 250, 0.08), transparent 26%),
+    url("./background-mars-upscaled.webp");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
 
 .settings-shell::before {
@@ -1039,36 +1047,34 @@ button {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 18%),
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.04), transparent 20%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 18%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05), transparent 24%);
 }
 
 .settings-backdrop-orb {
   position: absolute;
   pointer-events: none;
-  filter: blur(76px);
-  opacity: 0.42;
+  filter: blur(66px);
+  opacity: 0.36;
 }
 
 .settings-backdrop-orb--violet {
-  top: -70px;
-  left: -30px;
+  top: -80px;
+  left: -50px;
   width: 220px;
   height: 220px;
-  background: rgba(167, 139, 250, 0.18);
+  background: rgba(167, 139, 250, 0.16);
 }
 
 .settings-backdrop-orb--blue {
-  top: 60px;
-  right: -40px;
+  top: 10px;
+  right: -60px;
   width: 200px;
   height: 200px;
-  background: rgba(96, 165, 250, 0.14);
+  background: rgba(96, 165, 250, 0.12);
 }
 
 .settings-header,
-.settings-status-banner,
-.settings-overview-grid,
 .settings-form {
   position: relative;
   z-index: 1;
@@ -1081,41 +1087,27 @@ button {
   gap: 18px;
 }
 
+.settings-header--minimal {
+  padding: 6px 6px 0;
+}
+
 .settings-header-copy {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
-.settings-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.settings-header-note {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
 .settings-title {
-  margin: 2px 0 0;
-  font-size: clamp(36px, 5vw, 52px);
-  line-height: 0.95;
-  letter-spacing: -0.05em;
-}
-
-.settings-copy {
   margin: 0;
-  max-width: 760px;
-  color: var(--text-soft);
-  line-height: 1.7;
-  font-size: 15px;
+  color: var(--text-main);
+  font-size: clamp(34px, 8vw, 54px);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
 }
 
 .settings-close {
   flex: 0 0 auto;
+  -webkit-app-region: no-drag;
 }
 
 .settings-close svg {
@@ -1128,133 +1120,80 @@ button {
   stroke-linejoin: round;
 }
 
-.settings-status-banner {
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
-    rgba(255, 255, 255, 0.02);
-}
-
-.settings-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.settings-overview-card,
-.settings-card {
-  border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018)),
-    rgba(255, 255, 255, 0.02);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-.settings-overview-card {
-  padding: 18px 20px;
-  display: grid;
-  gap: 10px;
-}
-
-.settings-overview-value {
-  margin: 0;
-  color: var(--text-main);
-  font-size: 22px;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-}
-
-.settings-overview-copy {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 .settings-form {
-  display: grid;
-  gap: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+.settings-form--minimal {
+  padding-top: 4px;
 }
 
 .settings-card {
-  padding: 18px 20px;
   display: grid;
   gap: 10px;
+  padding: 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.055), transparent 24%),
+    rgba(8, 8, 8, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px) saturate(0.9);
+}
+
+.settings-input-card,
+.settings-input-card input,
+.settings-actions,
+.settings-actions button {
+  -webkit-app-region: no-drag;
 }
 
 .settings-input-card {
   align-content: start;
 }
 
-.settings-panel {
-  gap: 16px;
-}
-
-.settings-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.settings-panel-title {
-  margin: 6px 0 0;
-  color: var(--text-main);
-  font-size: 24px;
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-}
-
-.settings-panel-chip {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-.settings-preset-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-}
-
-.settings-preset-grid .preset-chip {
-  width: 100%;
-  min-height: 58px;
+.settings-input-card .text-input {
+  border-radius: 18px;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(8, 8, 8, 0.34);
   padding: 14px 16px;
-  justify-content: flex-start;
-  text-align: left;
-  line-height: 1.35;
-  border-radius: 20px;
-  color: var(--text-main);
-  background: rgba(255, 255, 255, 0.035);
 }
 
-.settings-preset-grid .preset-chip.is-active {
-  background:
-    linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(96, 165, 250, 0.08)),
-    rgba(255, 255, 255, 0.05);
-  border-color: rgba(167, 139, 250, 0.28);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 12px 30px rgba(167, 139, 250, 0.1);
-}
-
-.settings-editor-card .text-area {
-  min-height: 220px;
+.settings-input-card .text-input:focus {
+  border-color: rgba(167, 139, 250, 0.32);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
+  background: rgba(8, 8, 8, 0.4);
 }
 
 .settings-actions {
+  margin-top: auto;
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 8, 8, 0.26);
+  backdrop-filter: blur(14px) saturate(0.9);
+}
+
+.settings-actions--minimal .pill-button {
+  min-height: 42px;
+  padding-inline: 18px;
+  color: var(--text-main);
+  border-color: rgba(167, 139, 250, 0.24);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.26), rgba(96, 165, 250, 0.12));
+}
+
+.settings-actions--minimal .pill-button:hover {
+  border-color: rgba(167, 139, 250, 0.34);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.34), rgba(96, 165, 250, 0.16));
 }
 
 .settings-actions-note {
@@ -1262,28 +1201,27 @@ button {
   font-size: 13px;
 }
 
-@media (max-width: 960px) {
-  .settings-overview-grid,
-  .settings-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .settings-shell {
-    padding: 22px;
-    border-radius: 28px;
+    padding: 12px;
+    border-radius: 24px;
   }
 
-  .settings-header,
-  .settings-panel-head {
+  .settings-title {
+    font-size: 36px;
+  }
+
+  .settings-card {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .settings-actions {
+    align-items: stretch;
     flex-direction: column;
-    align-items: flex-start;
   }
 
-  .settings-panel-chip,
-  .settings-close {
-    align-self: stretch;
+  .settings-actions--minimal .pill-button {
     width: 100%;
   }
 }
