@@ -630,6 +630,7 @@ button {
 }
 
 .result-mini-action,
+.result-ask-entry,
 .result-ask-composer,
 .result-ask-textarea,
 .result-ask-button,
@@ -656,6 +657,7 @@ button {
 
 .result-grounding-badge[hidden],
 .result-searching-badge[hidden],
+.result-ask-entry[hidden],
 .result-ask-composer[hidden],
 .result-sources[hidden] {
   display: none !important;
@@ -801,6 +803,45 @@ button {
 .result-ask-button--primary:hover {
   border-color: rgba(167, 139, 250, 0.34);
   background: linear-gradient(135deg, rgba(167, 139, 250, 0.34), rgba(96, 165, 250, 0.16));
+}
+
+.result-ask-entry {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022)),
+    rgba(8, 8, 8, 0.24);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  backdrop-filter: blur(14px) saturate(0.95);
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.result-ask-entry:hover {
+  transform: translateY(-1px);
+  border-color: rgba(167, 139, 250, 0.28);
+  background:
+    linear-gradient(180deg, rgba(167, 139, 250, 0.12), rgba(255, 255, 255, 0.028)),
+    rgba(8, 8, 8, 0.28);
+}
+
+.result-ask-entry:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .result-body-copy {
