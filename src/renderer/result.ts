@@ -17,6 +17,7 @@ const groundingBadge = document.getElementById('grounding-badge') as HTMLDivElem
 const searchingBadge = document.getElementById('searching-badge') as HTMLDivElement;
 const sourcesSection = document.getElementById('result-sources') as HTMLElement;
 const sourcesList = document.getElementById('result-sources-list') as HTMLUListElement;
+const resultAskEntry = document.getElementById('result-ask-entry') as HTMLButtonElement;
 const askQuestionComposer = document.getElementById('ask-question-composer') as HTMLElement;
 const askQuestionInput = document.getElementById('ask-question-input') as HTMLTextAreaElement;
 const askQuestionHelper = document.getElementById('ask-question-helper') as HTMLParagraphElement;
@@ -38,7 +39,7 @@ let displayedStreamText = '';
 let targetStreamText = '';
 let pendingAskQuestionFocus = false;
 
-const VISIBLE_ACTIONS: QuickActionId[] = ['describe', 'code', 'translate', 'summarize', 'ask'];
+const VISIBLE_ACTIONS: QuickActionId[] = ['describe', 'code', 'translate', 'summarize'];
 
 function applyOverflowState(): void {
   resultText.classList.toggle('is-scrollable', resultOverflowEnabled);
@@ -152,7 +153,12 @@ function scheduleLayoutHeightReport(): void {
     const shellGap = parseFloat(shellStyles.rowGap || shellStyles.gap || '0');
     const composerHeight = askQuestionComposer.hidden ? 0 : askQuestionComposer.scrollHeight;
     const sourcesHeight = sourcesSection.hidden ? 0 : sourcesSection.scrollHeight;
-    const sectionCount = 2 + (askQuestionComposer.hidden ? 0 : 1) + (sourcesSection.hidden ? 0 : 1);
+    const askEntryHeight = resultAskEntry.hidden ? 0 : resultAskEntry.scrollHeight;
+    const sectionCount =
+      2 +
+      (askQuestionComposer.hidden ? 0 : 1) +
+      (sourcesSection.hidden ? 0 : 1) +
+      (resultAskEntry.hidden ? 0 : 1);
     const desiredHeight = Math.ceil(
       pagePadding +
         cardPadding +
@@ -160,6 +166,7 @@ function scheduleLayoutHeightReport(): void {
         composerHeight +
         getElementContentHeight(resultText) +
         sourcesHeight +
+        askEntryHeight +
         shellGap * Math.max(0, sectionCount - 1) +
         2
     );
@@ -191,6 +198,7 @@ function clearGroundingInfo(): void {
   groundingBadge.hidden = true;
   sourcesSection.hidden = true;
   sourcesList.innerHTML = '';
+  resultAskEntry.hidden = true;
 }
 
 function setResultOverflowState(enabled: boolean): void {
@@ -238,6 +246,13 @@ function renderGroundingInfo(groundingUsed: boolean, sources: SourceLink[]): voi
     sourcesList.appendChild(item);
   });
 
+  scheduleLayoutHeightReport();
+}
+
+function renderAskEntry(): void {
+  const shouldShow = Boolean(currentResult && askQuestionState.hasCaptureContext && !askQuestionState.isQuestionComposerOpen && !currentStream);
+  resultAskEntry.hidden = !shouldShow;
+  resultAskEntry.disabled = !shouldShow;
   scheduleLayoutHeightReport();
 }
 
@@ -445,6 +460,7 @@ function renderResult(result: AnalysisResult): void {
   renderAskQuestionComposer();
   renderStructuredText(result.text);
   renderGroundingInfo(result.groundingUsed, result.sources);
+  renderAskEntry();
 }
 
 function renderStreamState(state: ResultStreamState): void {
@@ -453,6 +469,7 @@ function renderStreamState(state: ResultStreamState): void {
   setSearchingBadgeVisible(isWaitingForFirstToken(state));
   renderQuickActions(getActiveQuickActionId());
   renderAskQuestionComposer();
+  renderAskEntry();
   targetStreamText = state.text;
   if (displayedStreamText.length > targetStreamText.length) {
     displayedStreamText = targetStreamText;
@@ -479,6 +496,7 @@ function renderEmptyState(): void {
   );
   renderQuickActions(getActiveQuickActionId());
   renderAskQuestionComposer();
+  renderAskEntry();
   scheduleLayoutHeightReport();
 }
 
@@ -510,6 +528,10 @@ askQuestionClose.addEventListener('click', () => {
   void window.desktopAssistant.closeAskQuestionComposer().catch(console.error);
 });
 
+resultAskEntry.addEventListener('click', () => {
+  void window.desktopAssistant.openAskQuestionComposer().catch(console.error);
+});
+
 window.addEventListener('keydown', async (event) => {
   if (event.key === 'Escape') {
     await window.desktopAssistant.collapseResult();
@@ -531,12 +553,14 @@ window.desktopAssistant.onAskQuestionState((state) => {
   if (currentStream) {
     renderQuickActions(getActiveQuickActionId());
     renderAskQuestionComposer();
+    renderAskEntry();
     return;
   }
 
   if (currentResult) {
     renderQuickActions(getActiveQuickActionId());
     renderAskQuestionComposer();
+    renderAskEntry();
     scheduleLayoutHeightReport();
     return;
   }
