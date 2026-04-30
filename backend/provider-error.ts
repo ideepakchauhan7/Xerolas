@@ -24,7 +24,9 @@ export function isCapacityErrorMessage(message: string): boolean {
     normalizedMessage.includes('temporarily unavailable') ||
     normalizedMessage.includes('overloaded') ||
     normalizedMessage.includes('try again later') ||
-    normalizedMessage.includes('quota exceeded')
+    normalizedMessage.includes('quota exceeded') ||
+    normalizedMessage.includes('temporarily waiting for gemini capacity') ||
+    normalizedMessage.includes('temporarily waiting for capacity')
   );
 }
 
