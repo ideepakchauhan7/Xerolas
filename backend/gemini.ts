@@ -32,6 +32,7 @@ interface GeminiOpenStreamResult {
   stream: AsyncGenerator<GeminiStreamEvent>;
   model: string;
   usedFallback: boolean;
+  webSearchAttempted: boolean;
   getGrounding: () => GeminiGroundingResult;
 }
 
@@ -283,7 +284,12 @@ async function requestGeminiAnalysisStream(input: {
   imageMimeType: string;
   imageBase64Data: string;
   useGrounding?: boolean;
-}): Promise<{ stream: AsyncGenerator<GeminiStreamEvent>; model: string; getGrounding: () => GeminiGroundingResult }> {
+}): Promise<{
+  stream: AsyncGenerator<GeminiStreamEvent>;
+  model: string;
+  webSearchAttempted: boolean;
+  getGrounding: () => GeminiGroundingResult;
+}> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:streamGenerateContent?alt=sse`,
     {
@@ -403,6 +409,7 @@ async function requestGeminiAnalysisStream(input: {
   return {
     stream: stream(),
     model: input.model,
+    webSearchAttempted: input.useGrounding ?? true,
     getGrounding: () => latestGrounding
   };
 }

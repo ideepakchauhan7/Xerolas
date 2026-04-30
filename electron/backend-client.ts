@@ -43,6 +43,10 @@ interface StreamGroundingPayload {
   sources?: unknown;
 }
 
+interface StreamSearchPayload {
+  webSearchInProgress?: boolean;
+}
+
 interface StreamCompletePayload {
   text?: string;
   provider?: string;
@@ -78,6 +82,7 @@ export interface AnalyzeImageInput {
 export interface AnalyzeStreamHandlers {
   onMeta?: (payload: { provider: string; model: string; usedFallback: boolean }) => void;
   onDelta?: (payload: { chunk: string; text: string }) => void;
+  onSearch?: (payload: { webSearchInProgress: boolean }) => void;
   onGrounding?: (payload: { groundingUsed: boolean; sources: SourceLink[] }) => void;
 }
 
@@ -368,6 +373,14 @@ export async function streamAnalyzeImage(
       model = typeof meta.model === 'string' && meta.model.trim() ? meta.model.trim() : model;
       usedFallback = Boolean(meta.usedFallback);
       handlers.onMeta?.({ provider, model, usedFallback });
+      return;
+    }
+
+    if (eventName === 'search') {
+      const search = payload as StreamSearchPayload;
+      if (search.webSearchInProgress) {
+        handlers.onSearch?.({ webSearchInProgress: true });
+      }
       return;
     }
 

@@ -26,6 +26,7 @@ type OpenRouterStreamEvent =
 interface OpenRouterOpenStreamResult {
   stream: AsyncGenerator<OpenRouterStreamEvent>;
   model: string;
+  webSearchAttempted: boolean;
   getGrounding: () => OpenRouterGroundingResult;
 }
 
@@ -501,6 +502,7 @@ async function requestOpenRouterStream(input: AnalyzeImageInput): Promise<OpenRo
   return {
     stream: stream(),
     model: latestModel,
+    webSearchAttempted: input.enableWebSearch,
     getGrounding
   };
 }
