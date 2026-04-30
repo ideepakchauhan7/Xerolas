@@ -310,9 +310,11 @@ button {
 .capture-tab::after {
   content: "";
   position: absolute;
-  inset: 8px;
-  border-radius: 14px;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 62%);
+  inset: 7px;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at center, rgba(255, 190, 80, 0.18), transparent 58%),
+    rgba(255, 255, 255, 0.025);
   opacity: 0.9;
 }
 
@@ -322,17 +324,17 @@ button {
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
 }
 
-.tab-dot {
+.capture-tab-icon {
   position: relative;
   z-index: 1;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: #ffffff;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  object-fit: cover;
+  pointer-events: none;
   box-shadow:
-    0 0 18px rgba(255, 255, 255, 0.28),
-    0 0 42px rgba(96, 165, 250, 0.22);
-  flex: 0 0 auto;
+    0 0 18px rgba(255, 185, 70, 0.18),
+    0 0 42px rgba(255, 145, 40, 0.14);
 }
 
 .widget-divider {

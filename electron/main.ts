@@ -69,6 +69,9 @@ if (!singleInstanceLock) {
 
 const PRELOAD_PATH = path.join(__dirname, 'preload.js');
 const RENDERER_DIST = path.join(__dirname, '..', '..', 'dist');
+const ICONS_DIST = app.isPackaged
+  ? path.join(process.resourcesPath, 'icons')
+  : path.join(__dirname, '..', '..', 'build', 'icons');
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 const SHOW_FLOATING_WIDGET = false;
 const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
@@ -308,25 +311,19 @@ async function loadPage(
   await window.loadFile(path.join(RENDERER_DIST, `${page}.html`), { query });
 }
 
+function getIconAssetPath(fileName: string): string {
+  return path.join(ICONS_DIST, fileName);
+}
+
+function getWindowIconPath(): string {
+  return getIconAssetPath(process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+}
+
 function createTrayIcon(): Electron.NativeImage {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-      <rect x="10" y="10" width="44" height="44" rx="18" fill="#111111"/>
-      <circle cx="23" cy="32" r="5" fill="#ffffff"/>
-      <circle cx="41" cy="32" r="5" fill="#ffffff"/>
-      <path d="M23 45c4.5-5.2 13.5-5.2 18 0" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none"/>
-    </svg>
-  `.trim();
+  const trayIcon = nativeImage.createFromPath(getIconAssetPath('tray.png'));
+  const icon = trayIcon.isEmpty() ? nativeImage.createFromPath(getWindowIconPath()) : trayIcon;
 
-  const image = nativeImage.createFromDataURL(
-    `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
-  );
-
-  if (process.platform === 'darwin') {
-    image.setTemplateImage(true);
-  }
-
-  return image.resize({
+  return icon.resize({
     width: process.platform === 'darwin' ? 18 : 20,
     height: process.platform === 'darwin' ? 18 : 20
   });
@@ -766,6 +763,7 @@ async function createWidgetWindow(display: Electron.Display): Promise<BrowserWin
 
   const widget = new BrowserWindow({
     ...bounds,
+    icon: getWindowIconPath(),
     frame: false,
     transparent: true,
     backgroundColor: TRANSPARENT_WINDOW_BACKGROUND,
@@ -1033,6 +1031,7 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
       };
 
   const resultWindow = new BrowserWindow({
+    icon: getWindowIconPath(),
     x: initialBounds.x,
     y: initialBounds.y,
     width: initialBounds.width,
@@ -1171,6 +1170,7 @@ async function ensureSettingsWindow(): Promise<BrowserWindow> {
 
   const settingsBounds = getSettingsBounds();
   const settingsWindow = new BrowserWindow({
+    icon: getWindowIconPath(),
     x: settingsBounds.x,
     y: settingsBounds.y,
     width: settingsBounds.width,
@@ -1353,6 +1353,7 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
 
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const overlay = new BrowserWindow({
+    icon: getWindowIconPath(),
     x: display.bounds.x,
     y: display.bounds.y,
     width: display.bounds.width,

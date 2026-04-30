@@ -52,6 +52,10 @@
       {
         "from": "build/app-config.json",
         "to": "app-config.json"
+      },
+      {
+        "from": "build/icons",
+        "to": "icons"
       }
     ],
     "directories": {
@@ -61,12 +65,14 @@
       "category": "public.app-category.productivity",
       "target": [
         "dmg"
-      ]
+      ],
+      "icon": "build/icons/icon.icns"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "build/icons/icon.ico"
     },
     "linux": {
       "target": [
@@ -74,7 +80,9 @@
         "deb"
       ],
       "category": "Utility",
-      "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>"
-    }
+      "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>",
+      "icon": "build/icons/icon.png"
+    },
+    "icon": "build/icons/icon.png"
   }
 }
