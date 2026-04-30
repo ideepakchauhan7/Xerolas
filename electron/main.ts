@@ -1629,6 +1629,21 @@ async function analyzeExistingImage(
             usedFallback
           });
         },
+        onSearch: ({ webSearchInProgress: nextWebSearchInProgress }) => {
+          if (!isCaptureSessionActive(captureSessionId) || !nextWebSearchInProgress) {
+            return;
+          }
+
+          webSearchInProgress = true;
+          pushResultStreamState({
+            status: activeStreamText ? 'streaming' : 'loading',
+            quickActionId,
+            text: activeStreamText,
+            message: 'Searching the web…',
+            selection,
+            webSearchInProgress
+          });
+        },
         onDelta: ({ text }) => {
           if (!isCaptureSessionActive(captureSessionId)) {
             return;

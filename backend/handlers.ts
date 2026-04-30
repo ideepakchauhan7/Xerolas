@@ -40,6 +40,7 @@ interface ProviderStreamResult {
   provider: string;
   model: string;
   usedFallback: boolean;
+  webSearchAttempted: boolean;
   stream: AsyncGenerator<ProviderStreamEvent>;
   getGrounding: () => { groundingUsed: boolean; sources: SourceLink[] };
 }
@@ -377,6 +378,16 @@ async function handleAnalyzeStream(
             })
           )
         );
+
+        if (opened.webSearchAttempted) {
+          controller.enqueue(
+            encoder.encode(
+              encodeSseEvent('search', {
+                webSearchInProgress: true
+              })
+            )
+          );
+        }
 
         try {
           for await (const streamEvent of opened.stream) {
