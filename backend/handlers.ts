@@ -32,11 +32,15 @@ interface ProviderAnalysisResult {
   sources: SourceLink[];
 }
 
+type ProviderStreamEvent =
+  | { type: 'text'; text: string }
+  | { type: 'grounding'; grounding: { groundingUsed: boolean; sources: SourceLink[] } };
+
 interface ProviderStreamResult {
   provider: string;
   model: string;
   usedFallback: boolean;
-  stream: AsyncGenerator<string>;
+  stream: AsyncGenerator<ProviderStreamEvent>;
   getGrounding: () => { groundingUsed: boolean; sources: SourceLink[] };
 }
 
@@ -375,7 +379,20 @@ async function handleAnalyzeStream(
         );
 
         try {
-          for await (const chunk of opened.stream) {
+          for await (const streamEvent of opened.stream) {
+            if (streamEvent.type === 'grounding') {
+              controller.enqueue(
+                encoder.encode(
+                  encodeSseEvent('grounding', {
+                    groundingUsed: streamEvent.grounding.groundingUsed,
+                    sources: streamEvent.grounding.sources
+                  })
+                )
+              );
+              continue;
+            }
+
+            const chunk = streamEvent.text;
             if (!chunk) {
               continue;
             }

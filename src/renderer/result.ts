@@ -429,7 +429,7 @@ function renderResult(result: AnalysisResult): void {
 function renderStreamState(state: ResultStreamState): void {
   currentStream = state;
   clearGroundingInfo();
-  setSearchingBadgeVisible(state.status !== 'error');
+  setSearchingBadgeVisible(Boolean(state.webSearchInProgress));
   renderQuickActions(getActiveQuickActionId());
   renderAskQuestionComposer();
   targetStreamText = state.text;

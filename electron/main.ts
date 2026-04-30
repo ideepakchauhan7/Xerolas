@@ -1580,12 +1580,15 @@ async function analyzeExistingImage(
   }
 
   const trimmedQuestion = options.question?.trim();
+  let activeStreamText = '';
+  let webSearchInProgress = false;
   const initialStreamState: ResultStreamState = {
     status: 'loading',
     quickActionId,
     text: '',
     message: trimmedQuestion ? 'Xerolas is answering your question…' : 'Xerolas is analyzing this capture…',
-    selection
+    selection,
+    webSearchInProgress
   };
   resultWindowAutoResizeEnabled = true;
   pushResultStreamState(initialStreamState);
@@ -1631,12 +1634,29 @@ async function analyzeExistingImage(
             return;
           }
 
+          activeStreamText = text;
           pushResultStreamState({
             status: 'streaming',
             quickActionId,
             text,
             message: null,
-            selection
+            selection,
+            webSearchInProgress
+          });
+        },
+        onGrounding: ({ groundingUsed, sources }) => {
+          if (!isCaptureSessionActive(captureSessionId) || (!groundingUsed && !sources.length)) {
+            return;
+          }
+
+          webSearchInProgress = true;
+          pushResultStreamState({
+            status: activeStreamText ? 'streaming' : 'loading',
+            quickActionId,
+            text: activeStreamText,
+            message: 'Searching the web…',
+            selection,
+            webSearchInProgress
           });
         }
       }
@@ -1659,7 +1679,8 @@ async function analyzeExistingImage(
         quickActionId,
         text: '',
         message: getErrorMessage(error),
-        selection
+        selection,
+        webSearchInProgress: false
       });
       throw error;
     }
