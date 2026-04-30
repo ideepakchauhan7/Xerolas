@@ -58,14 +58,18 @@ function json(status: number, payload: JsonRecord): Response {
   });
 }
 
-function sseHeaders(): Record<string, string> {
+const WEB_SEARCH_HEADER = 'X-Xerolas-Web-Search';
+
+function sseHeaders(webSearchAttempted = false): Record<string, string> {
   return {
     'Access-Control-Allow-Headers': `Content-Type, ${SESSION_HEADER}, ${NONCE_HEADER}, ${TIMESTAMP_HEADER}`,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Origin': '*',
+    'Access-Control-Expose-Headers': WEB_SEARCH_HEADER,
     'Cache-Control': 'no-store',
     Connection: 'keep-alive',
-    'Content-Type': 'text/event-stream; charset=utf-8'
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    ...(webSearchAttempted ? { [WEB_SEARCH_HEADER]: 'active' } : {})
   };
 }
 
@@ -447,7 +451,7 @@ async function handleAnalyzeStream(
 
     return new Response(stream, {
       status: 200,
-      headers: sseHeaders()
+      headers: sseHeaders(opened.webSearchAttempted)
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The Gemini request failed.';
