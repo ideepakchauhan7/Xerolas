@@ -933,7 +933,7 @@ function estimateAutoResultWindowSize(
     RESULT_MIN_SIZE.height,
     Math.max(measuredContentHeight, 166 + estimatedLines * 18 + groundingHeight)
   );
-  const maxHeight = Math.round(display.workArea.height * 0.68);
+  const maxHeight = display.workArea.height - 32;
   const height = Math.min(maxHeight, unclampedHeight);
   const size = clampResultWindowSize(display, { width, height });
 
@@ -1006,8 +1006,7 @@ function handleResultLayoutHeight(contentHeight: number): void {
     contentHeight,
     groundingUsed: latestAnalysis.groundingUsed
   });
-  pendingFinalResultLayoutFit = false;
-  resultWindowAutoResizeEnabled = false;
+  resultWindowAutoResizeEnabled = true;
 }
 
 async function ensureResultWindow(): Promise<BrowserWindow> {
