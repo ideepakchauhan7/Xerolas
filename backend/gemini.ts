@@ -63,6 +63,20 @@ function getGroundingSignature(grounding: GeminiGroundingResult): string {
   return [grounding.groundingUsed ? '1' : '0', ...grounding.sources.map((source) => source.url)].join('|');
 }
 
+function buildQuestionFormatInstruction(question: string): string {
+  const normalizedQuestion = question.toLowerCase();
+
+  if (/(^|\b)(one|1|single)[ -]?(line|sentence)(\b|$)/.test(normalizedQuestion)) {
+    return 'The user requested a one-line answer. Return exactly one concise sentence on one line, with no extra explanation, bullets, preamble, or follow-up details.';
+  }
+
+  if (/\b(answer only|only answer|just answer|no explanation|without explanation|do not explain)\b/.test(normalizedQuestion)) {
+    return 'The user requested answer-only output. Return only the direct answer with no extra explanation, preamble, bullets, or supporting details.';
+  }
+
+  return 'Follow any output-format constraints in the user question, including requested length, language, and whether to omit explanation.';
+}
+
 function buildGeminiPrompt(promptTemplate: string, question?: string, useGrounding = true): string {
   const trimmedPrompt = promptTemplate.trim();
   const trimmedQuestion = question?.trim();
@@ -91,7 +105,10 @@ ${trimmedPrompt}`;
     'User question about this capture:',
     trimmedQuestion,
     '',
-    questionInstruction
+    questionInstruction,
+    '',
+    'Response format:',
+    buildQuestionFormatInstruction(trimmedQuestion)
   ].join('\n');
 }
 
