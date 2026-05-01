@@ -82,11 +82,53 @@
       "category": "Utility",
       "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>",
       "icon": "build/icons/linux",
-      "synopsis": "AI screen intelligence for your desktop."
+      "synopsis": "AI screen intelligence for your desktop.",
+      "description": "Capture any screen region and get an AI-powered answer in context.",
+      "vendor": "Deepak Chauhan",
+      "desktop": {
+        "entry": {
+          "Name": "Xerolas",
+          "GenericName": "AI Screen Intelligence",
+          "Comment": "Capture any screen region and get an AI-powered answer in context.",
+          "Keywords": "AI;Screen;Capture;OCR;Translate;Summarize;Productivity;",
+          "StartupNotify": "true"
+        }
+      }
     },
     "icon": "build/icons/icon.png",
     "nsis": {
       "artifactName": "Xerolas-Setup-${version}.${ext}"
+    },
+    "deb": {
+      "packageName": "xerolas",
+      "packageCategory": "utils",
+      "priority": "optional",
+      "vendor": "Deepak Chauhan",
+      "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>",
+      "synopsis": "AI screen intelligence for your desktop.",
+      "description": "Capture any screen region and get an AI-powered answer in context.",
+      "fpm": [
+        "--license=MIT",
+        "--vendor=Deepak Chauhan",
+        "--url=https://xerolas.vercel.app"
+      ],
+      "desktop": {
+        "entry": {
+          "Name": "Xerolas",
+          "GenericName": "AI Screen Intelligence",
+          "Comment": "Capture any screen region and get an AI-powered answer in context.",
+          "Keywords": "AI;Screen;Capture;OCR;Translate;Summarize;Productivity;",
+          "StartupNotify": "true"
+        }
+      }
     }
+  },
+  "homepage": "https://xerolas.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ideepakchauhan7/Xerolas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ideepakchauhan7/Xerolas-downloads/releases"
   }
 }
