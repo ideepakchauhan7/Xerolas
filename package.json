@@ -1,6 +1,6 @@
 {
   "name": "xerolas",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Google Lens for your desktop built with Electron and TypeScript.",
   "main": "dist-electron/electron/main.js",
   "author": {
