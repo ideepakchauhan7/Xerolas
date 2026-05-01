@@ -1,6 +1,6 @@
 {
   "name": "xerolas",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "description": "AI screen intelligence for your desktop.",
   "main": "dist-electron/electron/main.js",
   "author": {
