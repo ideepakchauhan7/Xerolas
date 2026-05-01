@@ -84,6 +84,9 @@
       "icon": "build/icons/linux",
       "synopsis": "AI screen intelligence for your desktop."
     },
-    "icon": "build/icons/icon.png"
+    "icon": "build/icons/icon.png",
+    "nsis": {
+      "artifactName": "Xerolas-Setup-${version}.${ext}"
+    }
   }
 }

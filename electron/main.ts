@@ -80,6 +80,7 @@ const WIDGET_SIZE = { width: 164, height: 84 };
 const RESULT_MIN_SIZE = { width: 340, height: 252 }; // keep the answer compact by default while still large enough to read
 const SETTINGS_WINDOW_SIZE = { width: 940, height: 820 };
 const WINDOW_PREWARM_DELAY_MS = 180;
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const LEGACY_DEFAULT_SHORTCUTS = new Set([
   'CommandOrControl+Shift+Space',
   'Control+Alt+PrintScreen',
@@ -143,6 +144,8 @@ let resultWindowAutoResizeEnabled = false;
 let pendingFinalResultLayoutFit = false;
 let resultOverflowEnabled = false;
 let settingResultWindowBounds = false;
+let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
+let updateCheckInFlight = false;
 const SESSION_REFRESH_BUFFER_MS = 60_000;
 
 function toRect(input: Electron.Rectangle): Rect {
@@ -720,6 +723,21 @@ function buildSettingsViewModel(): SettingsViewModel {
   };
 }
 
+function checkForAppUpdates(reason: string): void {
+  if (updateCheckInFlight) {
+    return;
+  }
+
+  updateCheckInFlight = true;
+  autoUpdater.checkForUpdatesAndNotify()
+    .catch((error) => {
+      console.error(`Auto-update check failed during ${reason}:`, error);
+    })
+    .finally(() => {
+      updateCheckInFlight = false;
+    });
+}
+
 function configureAutoUpdater(): void {
   if (!app.isPackaged || !updateGithubOwner || !updateGithubRepo) {
     return;
@@ -754,7 +772,9 @@ function configureAutoUpdater(): void {
     }
   });
 
-  void autoUpdater.checkForUpdatesAndNotify();
+  checkForAppUpdates('startup');
+  updateCheckTimer = setInterval(() => checkForAppUpdates('periodic'), UPDATE_CHECK_INTERVAL_MS);
+  updateCheckTimer.unref?.();
 }
 
 async function createWidgetWindow(display: Electron.Display): Promise<BrowserWindow> {
