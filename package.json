@@ -84,7 +84,7 @@
       "icon": "build/icons/linux",
       "synopsis": "AI screen intelligence for your desktop.",
       "description": "Capture any screen region and get an AI-powered answer in context.",
-      "vendor": "Deepak Chauhan",
+      "vendor": "Xerolas",
       "desktop": {
         "entry": {
           "Name": "Xerolas",
@@ -103,13 +103,13 @@
       "packageName": "xerolas",
       "packageCategory": "utils",
       "priority": "optional",
-      "vendor": "Deepak Chauhan",
+      "vendor": "Xerolas",
       "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>",
       "synopsis": "AI screen intelligence for your desktop.",
       "description": "Capture any screen region and get an AI-powered answer in context.",
       "fpm": [
         "--license=MIT",
-        "--vendor=Deepak Chauhan",
+        "--vendor=Xerolas",
         "--url=https://xerolas.vercel.app"
       ],
       "desktop": {
