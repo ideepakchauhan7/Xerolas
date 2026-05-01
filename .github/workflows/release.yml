@@ -61,6 +61,7 @@ jobs:
             release/*.zip
             release/*.AppImage
             release/*.deb
+            release/*.snap
 
   publish-release:
     runs-on: ubuntu-latest
@@ -88,6 +89,7 @@ jobs:
             release-artifacts/**/*.zip
             release-artifacts/**/*.AppImage
             release-artifacts/**/*.deb
+            release-artifacts/**/*.snap
           draft: false
           prerelease: false
           append_body: false

@@ -46,9 +46,10 @@ Each public release should publish:
 - macOS `.dmg`
 - Linux `.AppImage`
 - Linux `.deb`
+- Linux `.snap` for Snap Store / Ubuntu App Center distribution
 - updater metadata such as `latest.yml`
 
-GitHub Releases are the single public source of truth for all release artifacts.
+GitHub Releases are the single public source of truth for direct-download release artifacts. Snap Store publishing uses the generated `.snap` artifact as the store submission package.
 
 ## One-time setup
 

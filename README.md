@@ -71,4 +71,5 @@ Tag a source release such as `v0.1.10` in the private repo and let the release w
 - macOS `.dmg`
 - Linux `.AppImage`
 - Linux `.deb`
+- Linux `.snap` for Snap Store / Ubuntu App Center distribution
 - updater metadata used by `electron-updater`

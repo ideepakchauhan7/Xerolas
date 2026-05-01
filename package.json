@@ -77,7 +77,8 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "snap"
       ],
       "category": "Utility",
       "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>",
@@ -121,6 +122,20 @@
           "StartupNotify": "true"
         }
       }
+    },
+    "snap": {
+      "artifactName": "Xerolas-${version}-${arch}.${ext}",
+      "title": "Xerolas",
+      "summary": "AI screen intelligence for your desktop.",
+      "description": "Capture any screen region and get an AI-powered answer in context. Use Xerolas to summarize, translate, extract text, explain code, and ask follow-up questions about the current capture without leaving your workflow.",
+      "category": "Utility",
+      "grade": "stable",
+      "confinement": "strict",
+      "base": "core22",
+      "publish": null,
+      "plugs": [
+        "default"
+      ]
     }
   },
   "homepage": "https://xerolas.vercel.app",
