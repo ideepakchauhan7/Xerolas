@@ -25,6 +25,14 @@ export const metadata: Metadata = {
     "desktop lens alternative",
   ],
   authors: [{ name: "Xerolas" }],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "1024x1024" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
   openGraph: {
     title: "Xerolas — See Anything. Understand Everything.",
     description:
