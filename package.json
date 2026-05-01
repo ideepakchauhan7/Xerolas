@@ -1,7 +1,7 @@
 {
   "name": "xerolas",
   "version": "0.1.16",
-  "description": "Google Lens for your desktop built with Electron and TypeScript.",
+  "description": "AI screen intelligence for your desktop.",
   "main": "dist-electron/electron/main.js",
   "author": {
     "name": "Deepak Chauhan",
@@ -81,7 +81,8 @@
       ],
       "category": "Utility",
       "maintainer": "Deepak Chauhan <ideepakchauhan7@users.noreply.github.com>",
-      "icon": "build/icons/icon.png"
+      "icon": "build/icons/linux",
+      "synopsis": "AI screen intelligence for your desktop."
     },
     "icon": "build/icons/icon.png"
   }
