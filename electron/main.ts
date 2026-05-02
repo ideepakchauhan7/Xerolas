@@ -816,6 +816,11 @@ function checkForAppUpdates(reason: string): void {
 }
 
 function configureAutoUpdater(): void {
+  if (process.env.SNAP) {
+    console.info('Snap environment detected; app updates are managed by Snap.');
+    return;
+  }
+
   if (!app.isPackaged || !updateGithubOwner || !updateGithubRepo) {
     return;
   }

@@ -135,6 +135,17 @@
       "publish": null,
       "plugs": [
         "default"
+      ],
+      "environment": {
+        "GTK_MODULES": "",
+        "LIBGL_DRIVERS_PATH": "$SNAP/usr/lib/x86_64-linux-gnu/dri:$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu/dri"
+      },
+      "stagePackages": [
+        "default",
+        "libgl1-mesa-dri",
+        "mesa-vulkan-drivers",
+        "libgbm1",
+        "libdrm2"
       ]
     }
   },
