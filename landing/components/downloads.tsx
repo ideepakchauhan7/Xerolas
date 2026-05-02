@@ -20,7 +20,7 @@ function pickAsset(assets: ReleaseAsset[], matcher: (asset: ReleaseAsset) => boo
 async function getLatestRelease(): Promise<GitHubRelease | null> {
   try {
     const response = await fetch(RELEASES_API, {
-      next: { revalidate: 3600 },
+      cache: "no-store",
       headers: {
         Accept: "application/vnd.github+json",
       },
