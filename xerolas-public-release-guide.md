@@ -86,6 +86,9 @@ Optional Gemini/OpenRouter fallback settings:
 - `CONTEXT_AI_OPENROUTER_MODEL` defaults to `openrouter/free`
 - `CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH` defaults to `false`; OpenRouter web search may incur extra cost even with free models, so enable only intentionally
 - `CONTEXT_AI_SESSION_TTL_SECONDS`
+- `CONTEXT_AI_ALLOWED_ORIGINS` comma-separated browser origins to allow; leave unset to block browser-origin API use
+- `CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE` defaults to `12`
+- `CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE` defaults to `30`
 
 ### 3. GitHub token for cross-repo releases
 

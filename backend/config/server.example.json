@@ -9,6 +9,9 @@
   "openRouterEnableWebSearch": false,
   "sessionSecret": "replace-with-a-long-random-session-secret",
   "sessionTtlSeconds": 900,
+  "allowedOrigins": [],
+  "sessionRateLimitPerMinute": 12,
+  "analyzeRateLimitPerMinute": 30,
   "tlsCertPath": "",
   "tlsKeyPath": ""
 }

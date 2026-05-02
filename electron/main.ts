@@ -292,7 +292,12 @@ function setVisibleOnAllWorkspaces(window: BrowserWindow): void {
   }
 }
 
-function applyProductionWindowHardening(window: BrowserWindow): void {
+function applyWindowHardening(window: BrowserWindow): void {
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+
   if (!app.isPackaged || DEV_SERVER_URL) {
     return;
   }
@@ -300,7 +305,6 @@ function applyProductionWindowHardening(window: BrowserWindow): void {
   window.webContents.on('devtools-opened', () => {
     window.webContents.closeDevTools();
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 }
 
 async function loadPage(
@@ -880,8 +884,11 @@ async function createWidgetWindow(display: Electron.Display): Promise<BrowserWin
     maximizable: false,
     webPreferences: {
       preload: PRELOAD_PATH,
+      nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       spellcheck: false,
       devTools: Boolean(DEV_SERVER_URL)
     }
@@ -889,7 +896,7 @@ async function createWidgetWindow(display: Electron.Display): Promise<BrowserWin
 
   widget.removeMenu();
   widget.setContentProtection(true);
-  applyProductionWindowHardening(widget);
+  applyWindowHardening(widget);
   widget.setAlwaysOnTop(true, 'screen-saver');
   setVisibleOnAllWorkspaces(widget);
 
@@ -1155,8 +1162,11 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
     minHeight: RESULT_MIN_SIZE.height,
     webPreferences: {
       preload: PRELOAD_PATH,
+      nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       spellcheck: false,
       backgroundThrottling: false,
       devTools: Boolean(DEV_SERVER_URL)
@@ -1165,7 +1175,7 @@ async function ensureResultWindow(): Promise<BrowserWindow> {
 
   resultWindow.removeMenu();
   resultWindow.setContentProtection(true);
-  applyProductionWindowHardening(resultWindow);
+  applyWindowHardening(resultWindow);
   resultWindow.setAlwaysOnTop(true, 'screen-saver');
   setVisibleOnAllWorkspaces(resultWindow);
   resultWindow.on('close', (event) => {
@@ -1292,15 +1302,18 @@ async function ensureSettingsWindow(): Promise<BrowserWindow> {
     show: false,
     webPreferences: {
       preload: PRELOAD_PATH,
+      nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       spellcheck: false,
       devTools: Boolean(DEV_SERVER_URL)
     }
   });
 
   settingsWindow.removeMenu();
-  applyProductionWindowHardening(settingsWindow);
+  applyWindowHardening(settingsWindow);
   settingsWindow.setAlwaysOnTop(true, 'screen-saver');
   setVisibleOnAllWorkspaces(settingsWindow);
   settingsWindow.on('close', (event) => {
@@ -1477,8 +1490,11 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
     paintWhenInitiallyHidden: false,
     webPreferences: {
       preload: PRELOAD_PATH,
+      nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
       spellcheck: false,
       backgroundThrottling: false,
       devTools: Boolean(DEV_SERVER_URL)
@@ -1486,7 +1502,7 @@ async function ensureOverlayWindow(): Promise<BrowserWindow> {
   });
 
   overlay.removeMenu();
-  applyProductionWindowHardening(overlay);
+  applyWindowHardening(overlay);
   overlay.setAlwaysOnTop(true, 'screen-saver');
   setVisibleOnAllWorkspaces(overlay);
   overlay.on('close', (event) => {
@@ -2226,7 +2242,7 @@ function installIpcHandlers(): void {
       return;
     }
 
-    if (!['https:', 'http:'].includes(target.protocol)) {
+    if (target.protocol !== 'https:') {
       return;
     }
 

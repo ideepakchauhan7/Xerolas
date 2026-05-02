@@ -17,6 +17,19 @@ function readJsonFile(filePath: string): Record<string, unknown> {
   }
 }
 
+function parseCsv(value: unknown): string[] {
+  return (value ?? '')
+    .toString()
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parsePositiveInteger(value: unknown, fallback: number): number {
+  const parsed = Number.parseInt((value ?? '').toString().trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 function createNodeServerConfig(): ServerConfig {
   const projectRoot = path.resolve(__dirname, '..', '..');
   const localConfigPath = path.join(projectRoot, 'backend', 'config', 'server.local.json');
@@ -91,6 +104,21 @@ function createNodeServerConfig(): ServerConfig {
           localConfig.sessionTtlSeconds ??
           900
       ) || 900
+    ),
+    allowedOrigins: parseCsv(
+      process.env.CONTEXT_AI_ALLOWED_ORIGINS ??
+        localConfig.allowedOrigins ??
+        ''
+    ),
+    sessionRateLimitPerMinute: parsePositiveInteger(
+      process.env.CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE ??
+        localConfig.sessionRateLimitPerMinute,
+      12
+    ),
+    analyzeRateLimitPerMinute: parsePositiveInteger(
+      process.env.CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE ??
+        localConfig.analyzeRateLimitPerMinute,
+      30
     ),
     tlsCertPath: (process.env.CONTEXT_AI_TLS_CERT_PATH ?? localConfig.tlsCertPath ?? '')
       .toString()

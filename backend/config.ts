@@ -9,6 +9,9 @@ export interface CloudflareWorkerBindings {
   CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH?: string;
   CONTEXT_AI_SESSION_SECRET?: string;
   CONTEXT_AI_SESSION_TTL_SECONDS?: string;
+  CONTEXT_AI_ALLOWED_ORIGINS?: string;
+  CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE?: string;
+  CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE?: string;
   REPLAY_NONCE_COORDINATOR?: DurableObjectNamespaceLike;
 }
 
@@ -27,9 +30,26 @@ export interface ReplayNonceConsumeInput {
   expiresAtMs: number;
 }
 
+export interface RateLimitInput {
+  key: string;
+  nowMs: number;
+  limit: number;
+  windowMs: number;
+}
+
+export interface RateLimitResult {
+  accepted: boolean;
+  retryAfterSeconds: number;
+}
+
 export interface ReplayProtector {
   mode: 'memory' | 'durable-object';
   consume(input: ReplayNonceConsumeInput): Promise<boolean>;
+}
+
+export interface RateLimiter {
+  mode: 'memory' | 'durable-object';
+  check(input: RateLimitInput): Promise<RateLimitResult>;
 }
 
 export interface ServerConfig {
@@ -43,6 +63,9 @@ export interface ServerConfig {
   openRouterEnableWebSearch: boolean;
   sessionSecret: string;
   sessionTtlSeconds: number;
+  allowedOrigins: string[];
+  sessionRateLimitPerMinute: number;
+  analyzeRateLimitPerMinute: number;
   tlsCertPath: string;
   tlsKeyPath: string;
 }
@@ -50,6 +73,7 @@ export interface ServerConfig {
 export interface BackendRuntimeContext {
   config: ServerConfig;
   replayProtector: ReplayProtector;
+  rateLimiter: RateLimiter;
 }
 
 class InMemoryReplayProtector implements ReplayProtector {
@@ -74,6 +98,33 @@ class InMemoryReplayProtector implements ReplayProtector {
     nextEntries.set(input.nonce, input.expiresAtMs);
     this.sessions.set(input.sessionId, nextEntries);
     return true;
+  }
+}
+
+class InMemoryRateLimiter implements RateLimiter {
+  mode: 'memory' = 'memory';
+  private readonly buckets = new Map<string, { count: number; resetAtMs: number }>();
+
+  async check(input: RateLimitInput): Promise<RateLimitResult> {
+    if (input.limit <= 0) {
+      return { accepted: true, retryAfterSeconds: 0 };
+    }
+
+    const existing = this.buckets.get(input.key);
+    const resetAtMs = existing && existing.resetAtMs > input.nowMs
+      ? existing.resetAtMs
+      : input.nowMs + input.windowMs;
+    const count = existing && existing.resetAtMs > input.nowMs ? existing.count : 0;
+
+    if (count >= input.limit) {
+      return {
+        accepted: false,
+        retryAfterSeconds: Math.max(1, Math.ceil((resetAtMs - input.nowMs) / 1000))
+      };
+    }
+
+    this.buckets.set(input.key, { count: count + 1, resetAtMs });
+    return { accepted: true, retryAfterSeconds: 0 };
   }
 }
 
@@ -108,6 +159,41 @@ class DurableObjectReplayProtector implements ReplayProtector {
   }
 }
 
+class DurableObjectRateLimiter implements RateLimiter {
+  mode: 'durable-object' = 'durable-object';
+  private readonly namespace: DurableObjectNamespaceLike;
+
+  constructor(namespace: DurableObjectNamespaceLike) {
+    this.namespace = namespace;
+  }
+
+  async check(input: RateLimitInput): Promise<RateLimitResult> {
+    const stub = this.namespace.getByName(input.key);
+    const response = await stub.fetch('https://internal/rate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(input)
+    });
+
+    if (response.status === 204) {
+      return { accepted: true, retryAfterSeconds: 0 };
+    }
+
+    if (response.status === 429) {
+      const retryAfterSeconds = Number.parseInt(response.headers.get('Retry-After') ?? '60', 10);
+      return {
+        accepted: false,
+        retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : 60
+      };
+    }
+
+    const message = (await response.text()).trim();
+    throw new Error(message || 'Rate limit request failed.');
+  }
+}
+
 function createReplayProtector(
   namespace?: DurableObjectNamespaceLike | null
 ): ReplayProtector {
@@ -118,13 +204,38 @@ function createReplayProtector(
   return new InMemoryReplayProtector();
 }
 
+function createRateLimiter(
+  namespace?: DurableObjectNamespaceLike | null
+): RateLimiter {
+  if (namespace) {
+    return new DurableObjectRateLimiter(namespace);
+  }
+
+  return new InMemoryRateLimiter();
+}
+
+function parseCsv(value: unknown): string[] {
+  return (value ?? '')
+    .toString()
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parsePositiveInteger(value: unknown, fallback: number): number {
+  const parsed = Number.parseInt((value ?? '').toString().trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function createBackendRuntimeContext(
   config: ServerConfig,
-  replayProtector?: ReplayProtector
+  replayProtector?: ReplayProtector,
+  rateLimiter?: RateLimiter
 ): BackendRuntimeContext {
   return {
     config,
-    replayProtector: replayProtector ?? createReplayProtector()
+    replayProtector: replayProtector ?? createReplayProtector(),
+    rateLimiter: rateLimiter ?? createRateLimiter()
   };
 }
 
@@ -163,7 +274,16 @@ export function createWorkerRuntimeContext(
       Number.parseInt((bindings.CONTEXT_AI_SESSION_TTL_SECONDS ?? '900').toString().trim(), 10) ||
         900
     ),
+    allowedOrigins: parseCsv(bindings.CONTEXT_AI_ALLOWED_ORIGINS),
+    sessionRateLimitPerMinute: parsePositiveInteger(
+      bindings.CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE,
+      12
+    ),
+    analyzeRateLimitPerMinute: parsePositiveInteger(
+      bindings.CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE,
+      30
+    ),
     tlsCertPath: '',
     tlsKeyPath: ''
-  }, createReplayProtector(bindings.REPLAY_NONCE_COORDINATOR));
+  }, createReplayProtector(bindings.REPLAY_NONCE_COORDINATOR), createRateLimiter(bindings.REPLAY_NONCE_COORDINATOR));
 }

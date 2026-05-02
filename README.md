@@ -41,6 +41,14 @@ npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put CONTEXT_AI_SESSION_SECRET
 ```
 
+Backend abuse controls are enabled by default: desktop requests without a browser `Origin` are allowed, browser origins are denied unless explicitly configured, session bootstrap is rate-limited, analyze requests are rate-limited per session, and oversized capture payloads are rejected before provider calls.
+
+Optional Worker variables/secrets:
+
+- `CONTEXT_AI_ALLOWED_ORIGINS` comma-separated browser origins to allow, for example `https://xerolas.vercel.app`; leave unset to block browser-origin calls.
+- `CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE` defaults to `12`.
+- `CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE` defaults to `30`.
+
 Optional free-model fallback when Gemini is at capacity:
 
 ```bash

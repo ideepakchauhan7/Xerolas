@@ -1,6 +1,6 @@
 {
   "name": "xerolas",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "description": "AI screen intelligence for your desktop.",
   "main": "dist-electron/electron/main.js",
   "author": {
@@ -28,7 +28,7 @@
     "@types/node": "^24.0.0",
     "concurrently": "^9.0.1",
     "cross-env": "^7.0.3",
-    "electron": "^37.2.0",
+    "electron": "^41.5.0",
     "electron-builder": "^26.0.0",
     "esbuild": "^0.27.7",
     "javascript-obfuscator": "^5.4.1",
