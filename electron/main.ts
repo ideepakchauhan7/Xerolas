@@ -63,6 +63,11 @@ import { createPerfSession, isPerfLoggingEnabled, perfMark, type PerfSession } f
 app.setName('Xerolas');
 app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal');
 
+if (process.env.SNAP) {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch('disable-gpu');
+}
+
 const singleInstanceLock = app.requestSingleInstanceLock();
 if (!singleInstanceLock) {
   app.quit();
