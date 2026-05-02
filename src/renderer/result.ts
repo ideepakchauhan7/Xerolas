@@ -194,8 +194,8 @@ function isWaitingForFirstToken(stream: ResultStreamState | null): boolean {
 }
 
 function setSearchingBadgeVisible(visible: boolean): void {
-  searchingBadge.hidden = !visible;
-  quickActions.hidden = visible;
+  searchingBadge.hidden = true;
+  quickActions.hidden = false;
   if (visible) {
     groundingBadge.hidden = true;
   }
@@ -284,6 +284,10 @@ function renderStreamBody(): void {
   applyOverflowState();
 
   if (isWaitingForFirstToken(currentStream)) {
+    const searchingCopy = document.createElement('p');
+    searchingCopy.className = 'result-searching-inline';
+    searchingCopy.textContent = 'Searching...';
+    resultText.appendChild(searchingCopy);
     scheduleLayoutHeightReport();
     return;
   }
@@ -494,6 +498,9 @@ function renderStreamState(state: ResultStreamState): void {
   renderSubmittedQuestion();
   renderAskEntry();
   targetStreamText = state.text;
+  if (!displayedStreamText && targetStreamText) {
+    displayedStreamText = targetStreamText.slice(0, Math.min(16, targetStreamText.length));
+  }
   if (displayedStreamText.length > targetStreamText.length) {
     displayedStreamText = targetStreamText;
   }

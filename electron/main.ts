@@ -13,6 +13,7 @@ import {
   systemPreferences,
   Tray
 } from 'electron';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import {
@@ -103,6 +104,7 @@ interface ActiveCaptureContext {
   imageDataUrl: string;
   imageBytes: Uint8Array;
   selection: SelectionPayload;
+  fingerprint: string;
 }
 
 let tray: Tray | null = null;
@@ -116,6 +118,7 @@ let historyItems: HistoryEntry[] = [];
 let latestAnalysis: AnalysisResult | null = null;
 let currentResultStream: ResultStreamState | null = null;
 let activeCaptureContext: ActiveCaptureContext | null = null;
+const analysisCache = new Map<string, AnalysisResult>();
 let askQuestionDraft = '';
 let askQuestionSubmittedText = '';
 let askQuestionComposerOpen = false;
@@ -147,6 +150,7 @@ let settingResultWindowBounds = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let updateCheckInFlight = false;
 const SESSION_REFRESH_BUFFER_MS = 60_000;
+const MAX_ANALYSIS_CACHE_ENTRIES = 24;
 
 function toRect(input: Electron.Rectangle): Rect {
   return {
@@ -461,6 +465,82 @@ function broadcastAskQuestionState(): void {
   broadcastState();
 }
 
+function getImageFingerprint(imageBytes: Uint8Array): string {
+  return createHash('sha256').update(imageBytes).digest('base64url');
+}
+
+function createActiveCaptureContext(
+  imageDataUrl: string,
+  imageBytes: Uint8Array,
+  selection: SelectionPayload
+): ActiveCaptureContext {
+  return {
+    imageDataUrl,
+    imageBytes,
+    selection,
+    fingerprint: getImageFingerprint(imageBytes)
+  };
+}
+
+function getAnalysisCacheKey(
+  context: ActiveCaptureContext,
+  quickActionId: QuickActionId,
+  promptTemplate: string,
+  question?: string
+): string {
+  return JSON.stringify([
+    context.fingerprint,
+    quickActionId,
+    promptTemplate.trim(),
+    question?.trim() ?? ''
+  ]);
+}
+
+function getCachedAnalysis(
+  context: ActiveCaptureContext,
+  quickActionId: QuickActionId,
+  promptTemplate: string,
+  question?: string
+): AnalysisResult | null {
+  return analysisCache.get(getAnalysisCacheKey(context, quickActionId, promptTemplate, question)) ?? null;
+}
+
+function rememberAnalysis(context: ActiveCaptureContext, analysis: AnalysisResult, question?: string): void {
+  const cacheKey = getAnalysisCacheKey(context, analysis.quickActionId, analysis.promptTemplate, question);
+  analysisCache.delete(cacheKey);
+  analysisCache.set(cacheKey, analysis);
+
+  while (analysisCache.size > MAX_ANALYSIS_CACHE_ENTRIES) {
+    const oldestKey = analysisCache.keys().next().value;
+    if (typeof oldestKey !== 'string') {
+      break;
+    }
+    analysisCache.delete(oldestKey);
+  }
+}
+
+async function showCachedAnalysis(
+  cachedAnalysis: AnalysisResult,
+  selection: SelectionPayload,
+  options: { repositionResult?: boolean } = {}
+): Promise<void> {
+  latestAnalysis = cachedAnalysis;
+  clearError();
+  currentResultStream = null;
+  pendingFinalResultLayoutFit = true;
+  resultWindowAutoResizeEnabled = true;
+  await showResultWindow({
+    selection,
+    clearStream: true,
+    reposition: options.repositionResult,
+    preferredSize: estimateAutoResultWindowSize(selection, cachedAnalysis.text, {
+      groundingUsed: cachedAnalysis.groundingUsed
+    }).size
+  });
+  broadcastResultStream();
+  broadcastState();
+}
+
 function setActiveCaptureContext(context: ActiveCaptureContext | null): void {
   activeCaptureContext = context;
   broadcastAskQuestionState();
@@ -475,11 +555,8 @@ function getReusableCaptureContext(): ActiveCaptureContext | null {
     return null;
   }
 
-  return {
-    imageDataUrl: latestAnalysis.imageDataUrl,
-    imageBytes: toPngBytes(latestAnalysis.imageDataUrl),
-    selection: latestAnalysis.selection
-  };
+  const imageBytes = toPngBytes(latestAnalysis.imageDataUrl);
+  return createActiveCaptureContext(latestAnalysis.imageDataUrl, imageBytes, latestAnalysis.selection);
 }
 
 function setAskQuestionDraft(questionText: string): void {
@@ -1502,11 +1579,10 @@ async function showHistoryEntry(id: string): Promise<void> {
     return;
   }
 
-  setActiveCaptureContext({
-    imageDataUrl: entry.imageDataUrl,
-    imageBytes: toPngBytes(entry.imageDataUrl),
-    selection: entry.selection
-  });
+  {
+    const imageBytes = toPngBytes(entry.imageDataUrl);
+    setActiveCaptureContext(createActiveCaptureContext(entry.imageDataUrl, imageBytes, entry.selection));
+  }
   setAskQuestionComposerClosed(true);
   latestAnalysis = entry;
   pushResultStreamState(null);
@@ -1520,11 +1596,10 @@ async function showMostRecentHistoryResult(): Promise<void> {
   }
 
   const entry = historyItems[0];
-  setActiveCaptureContext({
-    imageDataUrl: entry.imageDataUrl,
-    imageBytes: toPngBytes(entry.imageDataUrl),
-    selection: entry.selection
-  });
+  {
+    const imageBytes = toPngBytes(entry.imageDataUrl);
+    setActiveCaptureContext(createActiveCaptureContext(entry.imageDataUrl, imageBytes, entry.selection));
+  }
   setAskQuestionComposerClosed(true);
   latestAnalysis = entry;
   pushResultStreamState(null);
@@ -1594,16 +1669,25 @@ async function analyzeExistingImage(
   }
 
   const promptTemplate = resolvePromptTemplateForQuickAction(quickActionId, fallbackPromptTemplate);
-  setActiveCaptureContext({
-    imageDataUrl,
-    imageBytes,
-    selection
-  });
+  const captureContext = createActiveCaptureContext(imageDataUrl, imageBytes, selection);
+  setActiveCaptureContext(captureContext);
   if (!isCaptureSessionActive(captureSessionId)) {
     return;
   }
 
   const trimmedQuestion = options.question?.trim();
+  const cachedAnalysis = getCachedAnalysis(captureContext, quickActionId, promptTemplate, trimmedQuestion);
+  if (cachedAnalysis) {
+    markCapturePerf('analysis-cache-hit', {
+      quickActionId,
+      question: trimmedQuestion ?? null
+    });
+    await showCachedAnalysis(cachedAnalysis, selection, {
+      repositionResult: options.repositionResult
+    });
+    return;
+  }
+
   let activeStreamText = '';
   let webSearchInProgress = false;
   const initialStreamState: ResultStreamState = {
@@ -1616,6 +1700,7 @@ async function analyzeExistingImage(
   };
   resultWindowAutoResizeEnabled = true;
   pushResultStreamState(initialStreamState);
+  const sessionPromise = fetchBackendSession();
   await showResultWindow({
     reposition: options.repositionResult,
     selection,
@@ -1623,7 +1708,7 @@ async function analyzeExistingImage(
     clearStream: false
   });
 
-  let session = await fetchBackendSession();
+  let session = await sessionPromise;
   markCapturePerf('backend-request-start', {
     quickActionId,
     bytes: imageBytes.byteLength,
@@ -1752,6 +1837,7 @@ async function analyzeExistingImage(
   };
 
   appendHistoryEntry(latestAnalysis);
+  rememberAnalysis(captureContext, latestAnalysis, trimmedQuestion);
   clearError();
   currentResultStream = null;
   pendingFinalResultLayoutFit = true;
@@ -1783,11 +1869,7 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
     bytes: imageBytes.byteLength
   });
 
-  setActiveCaptureContext({
-    imageDataUrl,
-    imageBytes,
-    selection
-  });
+  setActiveCaptureContext(createActiveCaptureContext(imageDataUrl, imageBytes, selection));
 
   const backendConfigurationIssue = getBackendConfigurationIssue();
   if (backendConfigurationIssue) {

@@ -913,6 +913,22 @@ button {
   margin-bottom: 0;
 }
 
+.result-body-copy p.result-searching-inline {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  box-shadow: none;
+}
+
 .result-body-copy.is-streaming {
   color: var(--text-main);
   background:
