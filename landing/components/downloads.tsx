@@ -42,8 +42,7 @@ export async function Downloads() {
   const assets = release?.assets ?? [];
   const windows = pickAsset(assets, (asset) => asset.name.endsWith(".exe") && !asset.name.endsWith(".blockmap"));
   const mac = pickAsset(assets, (asset) => asset.name.endsWith(".dmg"));
-  const appImage = pickAsset(assets, (asset) => asset.name.endsWith(".AppImage"));
-  const deb = pickAsset(assets, (asset) => asset.name.endsWith(".deb"));
+  const snapStoreUrl = "https://snapcraft.io/xerolas";
 
   const downloadOptions = [
     {
@@ -57,14 +56,14 @@ export async function Downloads() {
       meta: mac?.name ?? "macOS 12+ · .dmg installer",
     },
     {
-      label: "Download for Linux",
-      href: appImage?.browser_download_url ?? RELEASES_PAGE,
-      meta: appImage?.name ?? "Ubuntu, Fedora & more · .AppImage",
+      label: "Linux App Center",
+      href: snapStoreUrl,
+      meta: "Recommended for Ubuntu · Snap Store / App Center",
     },
     {
-      label: "Linux .deb",
-      href: deb?.browser_download_url ?? RELEASES_PAGE,
-      meta: deb?.name ?? "Debian package for Linux desktops",
+      label: "Manual Linux packages",
+      href: release?.html_url ?? RELEASES_PAGE,
+      meta: "AppImage and .deb builds from GitHub Releases",
     },
   ];
 
@@ -83,7 +82,7 @@ export async function Downloads() {
             <span className="text-neutral-500">ready now.</span>
           </h2>
           <p className="text-neutral-400 max-w-2xl mx-auto text-lg leading-relaxed">
-            Install Xerolas on Windows, macOS, or Linux and start using desktop-wide AI screen intelligence right away.
+            Install Xerolas on Windows, macOS, or Linux and start using desktop-wide AI screen intelligence right away. On Ubuntu, use the App Center / Snap Store install for the cleanest experience.
           </p>
         </div>
 
@@ -97,7 +96,7 @@ export async function Downloads() {
                 {release?.tag_name ?? "GitHub Releases"}
               </div>
               <div className="mt-3 text-sm text-neutral-400">
-                Free public downloads · No account required · Works on Windows, macOS & Linux
+                Free public downloads · No account required · Snap recommended for Ubuntu/Linux
               </div>
             </div>
 
@@ -150,7 +149,7 @@ export async function Downloads() {
           <div className="mt-8 flex flex-wrap gap-6 text-xs text-neutral-600">
             <span>✓ Public GitHub release assets</span>
             <span>✓ Silent auto-update feed included</span>
-            <span>✓ Windows, macOS, and Linux builds</span>
+            <span>✓ Windows, macOS, and Snap/App Center builds</span>
             <span>✓ Feedback through GitHub Issues</span>
           </div>
         </div>

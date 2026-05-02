@@ -95,7 +95,7 @@ Tag a source release such as `v0.1.10` in the private repo and let the release w
 
 - Windows `.exe`
 - macOS `.dmg`
-- Linux `.AppImage`
-- Linux `.deb`
-- Linux `.snap` for Snap Store / Ubuntu App Center distribution
+- Linux `.snap` for Snap Store / Ubuntu App Center distribution, recommended for Ubuntu users
+- Linux `.AppImage` as a manual portable package
+- Linux `.deb` as a manual package for users who specifically need Debian packaging
 - updater metadata used by `electron-updater`
