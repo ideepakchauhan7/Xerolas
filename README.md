@@ -30,6 +30,24 @@ The packaged desktop app should ship with:
 
 Installers and updater metadata are published through the public downloads repo releases at `https://github.com/ideepakchauhan7/Xerolas-downloads/releases`.
 
+## Feedback loop
+
+Public feedback should go through the downloads repo so users do not need access to the private source repository:
+
+- Report issues: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=bug_report.yml`
+- Request features: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=feature_request.yml`
+- Share uninstall feedback: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=uninstall_feedback.yml`
+
+Track the launch loop without hidden telemetry:
+
+- Downloads: GitHub release asset download counts, plus Snap Store channel data.
+- Update checks: downloads of `latest.yml`, `latest-mac.yml`, and `latest-linux.yml`.
+- Daily captures: only user-volunteered workflow frequency in issues or interviews.
+- Failed captures: issue reports tagged `bug` / `user-feedback`, including OS, version, install type, and error message.
+- Uninstall complaints: issue reports tagged `uninstall-feedback`.
+
+Do not add silent desktop telemetry without an explicit opt-in design and privacy copy.
+
 ## Free-stack deployment
 
 ### Cloudflare Worker

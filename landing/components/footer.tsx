@@ -24,6 +24,8 @@ const FOOTER_LINKS = {
     { label: "Windows download", href: "#download" },
     { label: "macOS download", href: "#download" },
     { label: "Linux download", href: "#download" },
+    { label: "Report issue", href: "https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=bug_report.yml" },
+    { label: "Request feature", href: "https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=feature_request.yml" },
   ],
 };
 

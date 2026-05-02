@@ -1,5 +1,6 @@
 const RELEASES_API = "https://api.github.com/repos/ideepakchauhan7/Xerolas-downloads/releases/latest";
 const RELEASES_PAGE = "https://github.com/ideepakchauhan7/Xerolas-downloads/releases/latest";
+const FEEDBACK_PAGE = "https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new/choose";
 
 type ReleaseAsset = {
   name: string;
@@ -117,6 +118,14 @@ export async function Downloads() {
               >
                 Open downloads repo
               </a>
+              <a
+                href={FEEDBACK_PAGE}
+                target="_blank"
+                rel="noreferrer"
+                className="px-5 py-2.5 rounded-full border border-violet-400/20 text-violet-200 hover:text-white hover:border-violet-300/40 hover:bg-violet-500/10 transition-all duration-200"
+              >
+                Report issue / Request feature
+              </a>
             </div>
           </div>
 
@@ -142,6 +151,7 @@ export async function Downloads() {
             <span>✓ Public GitHub release assets</span>
             <span>✓ Silent auto-update feed included</span>
             <span>✓ Windows, macOS, and Linux builds</span>
+            <span>✓ Feedback through GitHub Issues</span>
           </div>
         </div>
       </div>
