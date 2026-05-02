@@ -25,6 +25,7 @@ interface SessionBootstrapPayload {
   token?: string;
   expiresAt?: string;
   expiresInSeconds?: number;
+  serverTime?: string;
   message?: string;
 }
 
@@ -60,6 +61,7 @@ export interface BackendSession {
   token: string;
   expiresAt: string;
   expiresAtMs: number;
+  serverClockOffsetMs: number;
 }
 
 export interface SessionBootstrapInput {
@@ -76,6 +78,7 @@ export interface AnalyzeImageInput {
   appVersion: string;
   platform: string;
   sessionToken: string;
+  sessionClockOffsetMs?: number;
   question?: string;
 }
 
@@ -160,10 +163,12 @@ function buildAnalyzeBody(input: AnalyzeImageInput): FormData {
   return body;
 }
 
-function buildTrustHeaders(sessionToken: string): Record<string, string> {
+function buildTrustHeaders(sessionToken: string, sessionClockOffsetMs = 0): Record<string, string> {
+  const trustedTimestampMs = Date.now() + sessionClockOffsetMs;
+
   return {
     'X-Xerolas-Session': sessionToken,
-    'X-Xerolas-Timestamp': `${Date.now()}`,
+    'X-Xerolas-Timestamp': `${Math.round(trustedTimestampMs)}`,
     'X-Xerolas-Nonce': randomUUID()
   };
 }
@@ -282,10 +287,17 @@ export async function requestSession(
     throw new Error('The backend returned an invalid session expiry.');
   }
 
+  const serverTimeMs =
+    typeof payload.serverTime === 'string' && payload.serverTime.trim()
+      ? Date.parse(payload.serverTime)
+      : Number.NaN;
+  const serverClockOffsetMs = Number.isFinite(serverTimeMs) ? serverTimeMs - Date.now() : 0;
+
   return {
     token: payload.token.trim(),
     expiresAt: payload.expiresAt.trim(),
-    expiresAtMs
+    expiresAtMs,
+    serverClockOffsetMs
   };
 }
 
@@ -297,7 +309,7 @@ export async function analyzeImage(
     method: 'POST',
     pathname: '/api/v1/analyze',
     body: buildAnalyzeBody(input),
-    headers: buildTrustHeaders(input.sessionToken)
+    headers: buildTrustHeaders(input.sessionToken, input.sessionClockOffsetMs)
   });
 
   if (typeof payload.text !== 'string' || !payload.text.trim()) {
@@ -332,7 +344,7 @@ export async function streamAnalyzeImage(
     method: 'POST',
     headers: {
       Accept: 'text/event-stream',
-      ...buildTrustHeaders(input.sessionToken)
+      ...buildTrustHeaders(input.sessionToken, input.sessionClockOffsetMs)
     },
     body: buildAnalyzeBody(input)
   });

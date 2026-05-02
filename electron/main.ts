@@ -78,7 +78,7 @@ const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
 const SHOULD_PREWARM_OVERLAY_WINDOW = process.platform !== 'linux';
 const WIDGET_SIZE = { width: 164, height: 84 };
 const RESULT_MIN_SIZE = { width: 340, height: 252 }; // keep the answer compact by default while still large enough to read
-const SETTINGS_WINDOW_SIZE = { width: 940, height: 820 };
+const SETTINGS_WINDOW_SIZE = { width: 520, height: 420 };
 const WINDOW_PREWARM_DELAY_MS = 180;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const LEGACY_DEFAULT_SHORTCUTS = new Set([
@@ -1640,6 +1640,7 @@ async function analyzeExistingImage(
         appVersion: app.getVersion(),
         platform: process.platform,
         sessionToken,
+        sessionClockOffsetMs: session.serverClockOffsetMs,
         question: trimmedQuestion
       },
       {

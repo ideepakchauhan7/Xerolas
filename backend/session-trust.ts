@@ -5,7 +5,8 @@ export const SESSION_HEADER = 'X-Xerolas-Session';
 export const NONCE_HEADER = 'X-Xerolas-Nonce';
 export const TIMESTAMP_HEADER = 'X-Xerolas-Timestamp';
 const SESSION_TOKEN_VERSION = 'v1';
-const SESSION_CLOCK_SKEW_MS = 90_000;
+// Allow real desktop clock drift while nonce replay protection still enforces single-use requests.
+const SESSION_CLOCK_SKEW_MS = 5 * 60_000;
 
 export interface SessionClaims {
   v: string;

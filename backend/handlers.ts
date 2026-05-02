@@ -308,15 +308,21 @@ async function handleSessionBootstrap(
     typeof body.appVersion === 'string' && body.appVersion.trim() ? body.appVersion.trim() : 'unknown';
   const platform =
     typeof body.platform === 'string' && body.platform.trim() ? body.platform.trim() : 'unknown';
-  const session = issueSessionToken(context, {
-    appVersion,
-    platform
-  });
+  const nowMs = Date.now();
+  const session = issueSessionToken(
+    context,
+    {
+      appVersion,
+      platform
+    },
+    nowMs
+  );
 
   return json(200, {
     token: session.token,
     expiresAt: session.expiresAt,
-    expiresInSeconds: session.expiresInSeconds
+    expiresInSeconds: session.expiresInSeconds,
+    serverTime: new Date(nowMs).toISOString()
   });
 }
 
