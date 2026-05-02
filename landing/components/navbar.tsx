@@ -5,6 +5,7 @@ import Link from "next/link";
 
 const NAV_LINKS = [
   { label: "Download", href: "#download" },
+  { label: "Preview", href: "#preview" },
   { label: "Problem", href: "#problem" },
   { label: "How it works", href: "#how-it-works" },
   { label: "Comparison", href: "#comparison" },

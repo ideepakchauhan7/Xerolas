@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { Downloads } from "@/components/downloads";
+import { ProductPreview } from "@/components/product-preview";
 import { SocialProof } from "@/components/social-proof";
 import { Features } from "@/components/features";
 import { BigFeatures } from "@/components/big-features";
@@ -19,6 +20,7 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
+        <ProductPreview />
         <Downloads />
         <SocialProof />
         <Features />
