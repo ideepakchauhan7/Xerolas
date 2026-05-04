@@ -11,6 +11,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://xerolas.vercel.app"),
   title: "Xerolas — See Anything. Understand Everything.",
   description:
     "Xerolas brings AI-powered screen intelligence to your entire desktop. Select any region from any app and get an instant answer without uploads, accounts, or API keys.",
@@ -37,13 +38,24 @@ export const metadata: Metadata = {
     title: "Xerolas — See Anything. Understand Everything.",
     description:
       "Select any region on your screen and get instant AI analysis from anywhere on your desktop.",
+    url: "https://xerolas.vercel.app",
+    siteName: "Xerolas",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Xerolas desktop AI screen capture demo",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Xerolas — See Anything. Understand Everything.",
     description:
       "Desktop-wide AI screen intelligence for Windows, macOS, and Linux.",
+    images: ["/og-image.png"],
   },
 };
 
