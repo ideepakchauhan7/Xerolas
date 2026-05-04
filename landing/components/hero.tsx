@@ -130,71 +130,20 @@ export function Hero() {
                   xerolas — desktop capture flow
                 </span>
               </div>
-              <div className="p-6 font-mono text-sm">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs text-neutral-500 uppercase tracking-wide">
-                        Trigger
-                      </span>
-                      <span className="text-xs font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
-                        READY
-                      </span>
-                    </div>
-                    <div className="text-2xl font-bold text-white mb-1">Ctrl+Shift+Space</div>
-                    <div className="text-xs text-neutral-500">
-                      start from Chrome, VS Code, Figma, PDFs, or anywhere else
-                    </div>
-                    <div className="mt-3 h-1 rounded-full bg-white/[0.06]">
-                      <div className="h-full w-5/6 rounded-full bg-gradient-to-r from-violet-500 to-emerald-500" />
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs text-neutral-500 uppercase tracking-wide">
-                        Selection
-                      </span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    </div>
-                    <div className="text-2xl font-bold text-white mb-1">
-                      Any region
-                    </div>
-                    <div className="text-xs text-neutral-500">
-                      code · errors · charts · UI · text · anything visible
-                    </div>
-                    <div className="mt-3 flex gap-0.5">
-                      {[9, 13, 11, 16, 14, 18, 17, 19, 15, 21, 20, 23, 19, 25, 21, 27].map((h, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 rounded-sm bg-violet-500/40"
-                          style={{ height: `${h}px` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs text-neutral-500 uppercase tracking-wide">
-                        Result
-                      </span>
-                      <span className="text-xs font-medium text-blue-400">
-                        AI
-                      </span>
-                    </div>
-                    <div className="text-2xl font-bold text-emerald-400 mb-1">
-                      Side answer panel
-                    </div>
-                    <div className="text-xs text-neutral-500">
-                      explain · extract text · translate · summarize
-                    </div>
-                    <div className="mt-3 text-xs font-mono text-neutral-600">
-                      <span className="text-emerald-400">●</span> no uploads {"  "}
-                      <span className="text-blue-400">●</span> no API key {"  "}
-                      <span className="text-violet-400">●</span> instant answer
-                    </div>
-                  </div>
+              <div className="relative bg-black/50">
+                <img
+                  src="/demo/xerolas-demo.gif"
+                  alt="Xerolas demo showing hotkey capture and answer beside a selected screen region"
+                  className="block w-full object-cover opacity-95"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-black/10" />
+                <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                  <span className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-neutral-300 backdrop-blur-sm">
+                    Hotkey → select region → answer beside it
+                  </span>
+                  <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-violet-100 backdrop-blur-sm">
+                    Watch Xerolas in action
+                  </span>
                 </div>
               </div>
             </div>
