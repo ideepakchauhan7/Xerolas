@@ -1,0 +1,61 @@
+name: Bug report
+description: Report something that is broken in Xerolas.
+title: "[Bug]: "
+labels: ["bug", "user-feedback"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the issue and what you expected instead.
+      placeholder: Xerolas failed when...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Xerolas version
+      placeholder: 0.1.30
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: install_type
+    attributes:
+      label: Install type
+      options:
+        - Windows installer
+        - macOS DMG
+        - Snap / Ubuntu App Center
+        - AppImage
+        - deb package
+        - Development build
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Xerolas
+        2. Press the hotkey
+        3. Select a region
+        4. See the error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error message or logs
+      description: Paste the visible error message. Do not paste API keys.
+      render: text

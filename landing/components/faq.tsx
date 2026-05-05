@@ -32,7 +32,7 @@ const FAQ_ITEMS = [
   {
     question: "How do updates work?",
     answer:
-      "Xerolas checks for updates in the background and uses the bundled update feed from the public downloads release channel.",
+      "Xerolas checks for updates in the background and uses the bundled update feed from the public GitHub release channel.",
   },
   {
     question: "Does Xerolas use web search?",

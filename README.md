@@ -12,8 +12,8 @@ The open-source safety model is BYOK by default:
 
 The public release setup remains free:
 
-- source can be public without shipping maintainer-owned API keys
-- separate public GitHub Releases repo for downloads
+- public source repo without shipping maintainer-owned API keys
+- GitHub Releases in the main `Xerolas` repo for downloads and updater metadata
 - free Vercel landing page on a `*.vercel.app` subdomain
 - no paid services
 - no custom domain
@@ -21,9 +21,8 @@ The public release setup remains free:
 
 ## Public release defaults
 
-- Source repo: `ideepakchauhan7/Xerolas`
-- Public downloads repo: `ideepakchauhan7/Xerolas-downloads`
-- Public downloads URL: `https://github.com/ideepakchauhan7/Xerolas-downloads/releases`
+- Public source and releases repo: `ideepakchauhan7/Xerolas`
+- Public downloads URL: `https://github.com/ideepakchauhan7/Xerolas/releases`
 - Vercel landing page: default `*.vercel.app` domain only
 
 ## Packaging and updates
@@ -31,10 +30,10 @@ The public release setup remains free:
 The packaged desktop app should ship with:
 
 - `updateGithubOwner = ideepakchauhan7`
-- `updateGithubRepo = Xerolas-downloads`
+- `updateGithubRepo = Xerolas`
 - no default `backendBaseUrl`; users configure a provider key locally
 
-Installers and updater metadata are published through the public downloads repo releases at `https://github.com/ideepakchauhan7/Xerolas-downloads/releases`.
+Installers and updater metadata are published through the main public repo releases at `https://github.com/ideepakchauhan7/Xerolas/releases`.
 
 ## Local AI provider setup
 
@@ -52,11 +51,11 @@ If OS encryption is unavailable in a production build, Xerolas refuses to persis
 
 ## Feedback loop
 
-Public feedback should go through the downloads repo so release users have one obvious place to report product issues:
+Public feedback should go through the main repo so users have one obvious place to report product issues:
 
-- Report issues: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=bug_report.yml`
-- Request features: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=feature_request.yml`
-- Share uninstall feedback: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=uninstall_feedback.yml`
+- Report issues: `https://github.com/ideepakchauhan7/Xerolas/issues/new?template=bug_report.yml`
+- Request features: `https://github.com/ideepakchauhan7/Xerolas/issues/new?template=feature_request.yml`
+- Share uninstall feedback: `https://github.com/ideepakchauhan7/Xerolas/issues/new?template=uninstall_feedback.yml`
 
 Track the launch loop without hidden telemetry:
 
@@ -111,7 +110,7 @@ Deploy the static `landing/` site to a free Vercel project and use the Vercel-pr
 
 ## GitHub Releases
 
-Tag a source release such as `v0.1.10` in the private repo and let the release workflow build and upload the artifacts into the separate public downloads repo. The workflow requires a `DOWNLOADS_REPO_TOKEN` secret with `contents: write` access to the downloads repo.
+Tag a source release such as `v0.1.30` in the public repo and let the release workflow build and upload the artifacts into the same repo's GitHub Release.
 
 - Windows `.exe`
 - macOS `.dmg`
@@ -119,3 +118,7 @@ Tag a source release such as `v0.1.10` in the private repo and let the release w
 - Linux `.AppImage` as a manual portable package
 - Linux `.deb` as a manual package for users who specifically need Debian packaging
 - updater metadata used by `electron-updater`
+
+## License
+
+Xerolas is released under the MIT License.

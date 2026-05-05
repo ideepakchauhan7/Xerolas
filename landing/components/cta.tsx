@@ -43,7 +43,7 @@ export function CTA() {
                   </span>
                 </Link>
                 <a
-                  href="https://github.com/ideepakchauhan7/Xerolas-downloads/releases/latest"
+                  href="https://github.com/ideepakchauhan7/Xerolas/releases/latest"
                   target="_blank"
                   rel="noreferrer"
                   className="px-8 py-3.5 text-sm font-medium text-neutral-300 rounded-full border border-white/10 hover:border-white/20 hover:text-white hover:bg-white/5 transition-all duration-200"

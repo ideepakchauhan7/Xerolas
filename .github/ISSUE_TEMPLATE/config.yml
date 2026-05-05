@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Download Xerolas
+    url: https://xerolas.vercel.app/#download
+    about: Get the latest public installer.

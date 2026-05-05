@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement for Xerolas.
+title: "[Feature]: "
+labels: ["enhancement", "user-feedback"]
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What workflow should this improve?
+      placeholder: I want to use Xerolas for...
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Xerolas to do?
+      placeholder: It would help if...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried instead?
+      placeholder: Right now I...

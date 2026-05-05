@@ -1,6 +1,6 @@
-const RELEASES_API = "https://api.github.com/repos/ideepakchauhan7/Xerolas-downloads/releases/latest";
-const RELEASES_PAGE = "https://github.com/ideepakchauhan7/Xerolas-downloads/releases/latest";
-const FEEDBACK_PAGE = "https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new/choose";
+const RELEASES_API = "https://api.github.com/repos/ideepakchauhan7/Xerolas/releases/latest";
+const RELEASES_PAGE = "https://github.com/ideepakchauhan7/Xerolas/releases/latest";
+const FEEDBACK_PAGE = "https://github.com/ideepakchauhan7/Xerolas/issues/new/choose";
 
 type ReleaseAsset = {
   name: string;
@@ -110,12 +110,12 @@ export async function Downloads() {
                 See changelog on GitHub
               </a>
               <a
-                href="https://github.com/ideepakchauhan7/Xerolas-downloads"
+                href="https://github.com/ideepakchauhan7/Xerolas"
                 target="_blank"
                 rel="noreferrer"
                 className="px-5 py-2.5 rounded-full border border-white/10 text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all duration-200"
               >
-                Open downloads repo
+                Open source repo
               </a>
               <a
                 href={FEEDBACK_PAGE}

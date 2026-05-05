@@ -29,7 +29,7 @@ exports.default = async function beforeBuild() {
     updateGithubOwner:
       process.env.CONTEXT_AI_UPDATE_GITHUB_OWNER || localConfig.updateGithubOwner || 'ideepakchauhan7',
     updateGithubRepo:
-      process.env.CONTEXT_AI_UPDATE_GITHUB_REPO || localConfig.updateGithubRepo || 'Xerolas-downloads',
+      process.env.CONTEXT_AI_UPDATE_GITHUB_REPO || localConfig.updateGithubRepo || 'Xerolas',
     defaultQuickActionId:
       process.env.CONTEXT_AI_DEFAULT_QUICK_ACTION_ID ||
       localConfig.defaultQuickActionId ||

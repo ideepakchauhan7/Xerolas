@@ -10,12 +10,12 @@ This guide is the release runbook for a public-source Xerolas build that does no
 - Users add their own Anthropic, OpenAI, Gemini, or OpenRouter key in Settings.
 - API keys are stored locally with Electron `safeStorage`; saved keys are never returned to the renderer.
 - Web search is off by default and can be enabled explicitly in Settings when the selected provider/model supports it.
-- Auto-update uses `electron-updater` and the public downloads repo.
+- Auto-update uses `electron-updater` and GitHub Releases in the public `Xerolas` repo.
 
 Packaged app defaults:
 
 - `updateGithubOwner = ideepakchauhan7`
-- `updateGithubRepo = Xerolas-downloads`
+- `updateGithubRepo = Xerolas`
 - no default `backendBaseUrl`
 
 ### Optional Self-Hosted Gateway
@@ -31,9 +31,9 @@ Use a gateway only when you intentionally configure one through:
 
 If a gateway is configured, it must own its provider secrets and session/replay protection. Do not commit gateway secrets.
 
-### Public Downloads
+### Public Releases
 
-- Installers live in GitHub Releases for `ideepakchauhan7/Xerolas-downloads`.
+- Installers live in GitHub Releases for `ideepakchauhan7/Xerolas`.
 - The landing page is the static `landing/` directory deployed to a free `*.vercel.app` subdomain.
 - No custom domain or paid release infrastructure is required.
 
@@ -52,21 +52,15 @@ GitHub Releases are the public source of truth for direct-download artifacts. Sn
 
 ## One-Time Setup
 
-### 1. GitHub Repos
+### 1. GitHub Repo
 
-Source repo:
+Public source and release repo:
 
 ```text
 https://github.com/ideepakchauhan7/Xerolas.git
 ```
 
-Public downloads repo:
-
-```text
-https://github.com/ideepakchauhan7/Xerolas-downloads
-```
-
-The downloads repo must be publicly reachable. If it returns `404` in an incognito window, the landing page downloads and update checks will fail for public users.
+The repo must be publicly reachable. If it returns `404` in an incognito window, the landing page downloads and update checks will fail for public users.
 
 ### 2. Provider Keys
 
@@ -90,9 +84,9 @@ Optional gateway fallback settings:
 - `CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE`
 - `CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE`
 
-### 3. GitHub Token For Cross-Repo Releases
+### 3. GitHub Releases
 
-Add a repository secret named `DOWNLOADS_REPO_TOKEN` to the source repo. Use a fine-grained token with `contents: write` access to `ideepakchauhan7/Xerolas-downloads` so GitHub Actions can create releases in the public downloads repo.
+The release workflow publishes installers into the same `ideepakchauhan7/Xerolas` repo. It uses the built-in GitHub Actions token with `contents: write`, so no cross-repo release token is required.
 
 ### 4. Vercel
 
@@ -107,9 +101,9 @@ Use the default `*.vercel.app` URL only.
 
 1. Update the desktop app version in `package.json`.
 2. Run verification locally.
-3. Create and push a release tag such as `v0.1.29`.
+3. Create and push a release tag such as `v0.1.30`.
 4. GitHub Actions builds artifacts on Ubuntu, Windows, and macOS.
-5. The workflow uploads installers and updater metadata to `ideepakchauhan7/Xerolas-downloads`.
+5. The workflow uploads installers and updater metadata to `ideepakchauhan7/Xerolas`.
 6. The landing page reads the latest public GitHub Release.
 7. Installed apps update through public GitHub Releases.
 
@@ -131,7 +125,7 @@ Then verify:
 3. Saving a provider key does not put the full key in `settings.json`.
 4. `rg` finds no real provider keys in current files.
 5. `git log -G` finds no real provider keys in history; rotate any key that ever touched git.
-6. Landing downloads still point at `ideepakchauhan7/Xerolas-downloads`.
+6. Landing downloads still point at `ideepakchauhan7/Xerolas`.
 
 ## Free-Stack Summary
 

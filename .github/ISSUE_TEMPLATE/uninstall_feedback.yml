@@ -1,0 +1,32 @@
+name: Uninstall feedback
+description: Tell us why Xerolas did not work for you.
+title: "[Uninstall]: "
+labels: ["uninstall-feedback", "user-feedback"]
+body:
+  - type: textarea
+    id: reason
+    attributes:
+      label: What made you uninstall or stop using Xerolas?
+      placeholder: I stopped because...
+    validations:
+      required: true
+  - type: dropdown
+    id: biggest_issue
+    attributes:
+      label: Biggest issue
+      options:
+        - Capture flow
+        - Answer quality
+        - Setup / API key
+        - Performance
+        - Platform install problem
+        - Privacy concern
+        - I did not need it
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What change would make you try Xerolas again?
+      placeholder: I would try again if...

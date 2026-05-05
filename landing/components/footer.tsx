@@ -16,16 +16,16 @@ const FOOTER_LINKS = {
     { label: "FAQ", href: "#faq" },
   ],
   Releases: [
-    { label: "Latest release", href: "https://github.com/ideepakchauhan7/Xerolas-downloads/releases/latest" },
-    { label: "Changelog", href: "https://github.com/ideepakchauhan7/Xerolas-downloads/releases" },
-    { label: "Downloads repo", href: "https://github.com/ideepakchauhan7/Xerolas-downloads" },
+    { label: "Latest release", href: "https://github.com/ideepakchauhan7/Xerolas/releases/latest" },
+    { label: "Changelog", href: "https://github.com/ideepakchauhan7/Xerolas/releases" },
+    { label: "Source repo", href: "https://github.com/ideepakchauhan7/Xerolas" },
   ],
   Support: [
     { label: "Windows download", href: "#download" },
     { label: "macOS download", href: "#download" },
     { label: "Linux download", href: "#download" },
-    { label: "Report issue", href: "https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=bug_report.yml" },
-    { label: "Request feature", href: "https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=feature_request.yml" },
+    { label: "Report issue", href: "https://github.com/ideepakchauhan7/Xerolas/issues/new?template=bug_report.yml" },
+    { label: "Request feature", href: "https://github.com/ideepakchauhan7/Xerolas/issues/new?template=feature_request.yml" },
   ],
 };
 

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -44,7 +44,7 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           CONTEXT_AI_UPDATE_GITHUB_OWNER: ideepakchauhan7
-          CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas-downloads
+          CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas
         run: npx electron-builder --publish never
 
       - name: Upload release artifacts
@@ -73,11 +73,9 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
-      - name: Publish assets to public downloads repo
+      - name: Publish assets to Xerolas release
         uses: softprops/action-gh-release@v2
         with:
-          repository: ideepakchauhan7/Xerolas-downloads
-          token: ${{ secrets.DOWNLOADS_REPO_TOKEN }}
           tag_name: ${{ github.ref_name }}
           target_commitish: main
           files: |
@@ -96,6 +94,5 @@ jobs:
             Automated Xerolas desktop release artifacts for source tag `${{ github.ref_name }}`.
 
             Source repo: `ideepakchauhan7/Xerolas`
-            Downloads repo: `ideepakchauhan7/Xerolas-downloads`
           generate_release_notes: false
           fail_on_unmatched_files: false
