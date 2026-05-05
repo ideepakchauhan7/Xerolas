@@ -20,6 +20,11 @@ exports.default = async function beforeBuild() {
   const projectRoot = path.resolve(__dirname, '..');
   const outputPath = path.join(projectRoot, 'build', 'app-config.json');
   const localConfig = loadDeveloperConfig();
+  const xerolasCloudGatewayBaseUrl =
+    process.env.XEROLAS_CLOUD_GATEWAY_BASE_URL ||
+    process.env.XEROLAS_CLOUD_GATEWAY_URL ||
+    localConfig.xerolasCloudGatewayBaseUrl ||
+    '';
   const bundledConfig = {
     updateGithubOwner:
       process.env.CONTEXT_AI_UPDATE_GITHUB_OWNER || localConfig.updateGithubOwner || 'ideepakchauhan7',
@@ -34,6 +39,10 @@ exports.default = async function beforeBuild() {
       localConfig.defaultPromptTemplate ||
       'Answer the most useful question about this selected content. Focus on the main subject, solve or explain the visible content when possible, ignore browser or app chrome unless it matters, and keep the answer concise, grounded, and practical. Use plain text only.'
   };
+
+  if (xerolasCloudGatewayBaseUrl.trim()) {
+    bundledConfig.xerolasCloudGatewayBaseUrl = xerolasCloudGatewayBaseUrl.trim().replace(/\/+$/, '');
+  }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(bundledConfig, null, 2)}\n`, 'utf8');

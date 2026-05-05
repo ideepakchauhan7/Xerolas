@@ -1,24 +1,28 @@
 :root {
   color-scheme: dark;
   font-family:
-    "IBM Plex Sans",
-    "Avenir Next",
-    "Segoe UI Variable",
-    "Segoe UI",
-    sans-serif;
-  --bg-strong: rgba(10, 10, 10, 0.96);
-  --bg-soft: rgba(22, 22, 22, 0.88);
-  --bg-faint: rgba(255, 255, 255, 0.05);
-  --stroke: rgba(255, 255, 255, 0.12);
-  --stroke-strong: rgba(255, 255, 255, 0.22);
-  --text-main: #f4f4f5;
-  --text-soft: rgba(244, 244, 245, 0.76);
-  --text-muted: rgba(244, 244, 245, 0.5);
-  --accent-violet: rgba(167, 139, 250, 0.95);
-  --accent-blue: rgba(96, 165, 250, 0.92);
+    "IBM Plex Mono",
+    "SFMono-Regular",
+    "Cascadia Mono",
+    "JetBrains Mono",
+    Consolas,
+    monospace;
+  --bg-strong: rgba(0, 0, 0, 0.98);
+  --bg-soft: rgba(5, 5, 5, 0.94);
+  --bg-faint: rgba(255, 255, 255, 0.035);
+  --stroke: rgba(255, 255, 255, 0.13);
+  --stroke-strong: rgba(255, 255, 255, 0.32);
+  --text-main: #f1f1f1;
+  --text-soft: rgba(241, 241, 241, 0.72);
+  --text-muted: rgba(241, 241, 241, 0.42);
+  --accent-violet: rgba(255, 255, 255, 0.88);
+  --accent-blue: rgba(255, 255, 255, 0.7);
+  --terminal-grid: rgba(255, 255, 255, 0.035);
+  --terminal-line: rgba(255, 255, 255, 0.18);
+  --terminal-glow: rgba(255, 255, 255, 0.16);
   --shadow:
-    0 24px 48px rgba(0, 0, 0, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 24px 54px rgba(0, 0, 0, 0.64),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 * {
@@ -37,6 +41,7 @@ body {
   background: transparent;
   overflow: hidden;
   user-select: none;
+  letter-spacing: -0.02em;
 }
 
 button,
@@ -66,36 +71,43 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.42);
 }
 
 .glass-panel {
   background:
-    radial-gradient(circle at top left, rgba(167, 139, 250, 0.12), transparent 32%),
-    radial-gradient(circle at 82% 14%, rgba(96, 165, 250, 0.08), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.04), transparent 38%),
-    rgba(8, 8, 8, 0.94);
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.075), transparent 30%),
+    rgba(0, 0, 0, 0.96);
+  background-size:
+    18px 18px,
+    18px 18px,
+    auto,
+    auto;
   border: 1px solid var(--stroke);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px) saturate(0.7);
 }
 
 .surface-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 7px 10px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--terminal-line);
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .icon-button {
@@ -104,7 +116,7 @@ button {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 14px;
+  border-radius: 2px;
   color: var(--text-soft);
   cursor: pointer;
   transition:
@@ -113,21 +125,22 @@ button {
     color 120ms ease,
     border-color 120ms ease,
     opacity 120ms ease;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
 }
 
 .icon-button:hover {
-  transform: translateY(-1px);
+  transform: none;
   color: var(--text-main);
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
 }
 
 .icon-button.is-active {
   color: var(--text-main);
-  border-color: rgba(167, 139, 250, 0.32);
-  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .icon-button:disabled {
@@ -139,9 +152,9 @@ button {
 .eyebrow {
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .pill-button,
@@ -151,9 +164,9 @@ button {
   justify-content: center;
   gap: 10px;
   padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
   color: var(--text-soft);
   cursor: pointer;
   transition:
@@ -166,19 +179,17 @@ button {
 
 .pill-button:hover,
 .preset-chip:hover {
-  transform: translateY(-1px);
+  transform: none;
   color: var(--text-main);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .preset-chip.is-active {
   color: var(--text-main);
-  border-color: rgba(167, 139, 250, 0.28);
-  background:
-    linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(255, 255, 255, 0.06)),
-    rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.06);
 }
 
 .preset-chip:disabled,
@@ -192,8 +203,10 @@ button {
   display: block;
   margin-bottom: 8px;
   color: var(--text-soft);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .field-group {
@@ -210,9 +223,9 @@ button {
 .text-input,
 .text-area {
   width: 100%;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(0, 0, 0, 0.5);
   color: var(--text-main);
   padding: 14px 16px;
   outline: none;
@@ -223,8 +236,8 @@ button {
 
 .text-input:focus,
 .text-area:focus {
-  border-color: rgba(255, 255, 255, 0.24);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 .text-area {
@@ -238,9 +251,9 @@ button {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
   color: var(--text-soft);
   font-size: 13px;
 }
@@ -248,9 +261,16 @@ button {
 .status-dot {
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.42);
+}
+
+.result-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.48);
 }
 
 .preset-row {
@@ -270,13 +290,14 @@ button {
   gap: 10px;
   width: 100%;
   height: 100%;
-  border-radius: 24px;
-  padding: 10px 12px;
+  border-radius: 2px;
+  padding: 8px 10px;
   -webkit-app-region: drag;
   background:
-    radial-gradient(circle at 18% 30%, rgba(167, 139, 250, 0.18), transparent 34%),
-    radial-gradient(circle at 100% 0%, rgba(96, 165, 250, 0.12), transparent 30%),
-    rgba(9, 9, 9, 0.94);
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    rgba(0, 0, 0, 0.96);
+  background-size: 16px 16px;
 }
 
 .capture-tab,
@@ -291,15 +312,13 @@ button {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
+  width: 52px;
+  height: 52px;
+  border-radius: 2px;
   padding: 0;
   cursor: pointer;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid var(--terminal-line);
   transition:
     transform 140ms ease,
     background-color 140ms ease,
@@ -310,18 +329,18 @@ button {
 .capture-tab::after {
   content: "";
   position: absolute;
-  inset: 7px;
-  border-radius: 15px;
+  inset: 8px;
+  border-radius: 1px;
   background:
-    radial-gradient(circle at center, rgba(255, 190, 80, 0.18), transparent 58%),
-    rgba(255, 255, 255, 0.025);
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.22), transparent 60%),
+    rgba(255, 255, 255, 0.02);
   opacity: 0.9;
 }
 
 .capture-tab:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.08);
 }
 
 .capture-tab-icon {
@@ -329,18 +348,18 @@ button {
   z-index: 1;
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: 1px;
   object-fit: cover;
   pointer-events: none;
   box-shadow:
-    0 0 18px rgba(255, 185, 70, 0.18),
-    0 0 42px rgba(255, 145, 40, 0.14);
+    0 0 18px rgba(255, 255, 255, 0.18),
+    0 0 42px rgba(255, 255, 255, 0.08);
 }
 
 .widget-divider {
   width: 1px;
   align-self: stretch;
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.28), transparent);
 }
 
 .widget-actions {
@@ -352,7 +371,7 @@ button {
 .overlay-page {
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.1);
   cursor: crosshair;
 }
 
@@ -367,16 +386,18 @@ button {
   top: 18px;
   left: 50%;
   z-index: 8;
-  width: min(780px, calc(100vw - 36px));
+  width: min(920px, calc(100vw - 36px));
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 16px;
-  border-radius: 26px;
+  gap: 18px;
+  padding: 10px 12px;
+  border-radius: 2px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
-    rgba(8, 8, 8, 0.9);
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    rgba(0, 0, 0, 0.92);
+  background-size: 18px 18px;
 }
 
 .overlay-toolbar-primary,
@@ -395,7 +416,7 @@ button {
 .overlay-toolbar-text {
   margin: 4px 0 0;
   color: var(--text-soft);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -404,15 +425,15 @@ button {
 }
 
 .overlay-toolbar-status.is-dragging {
-  color: #f5f3ff;
-  border-color: rgba(167, 139, 250, 0.24);
-  background: rgba(167, 139, 250, 0.14);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .overlay-toolbar-status.is-processing {
-  color: #dcfce7;
-  border-color: rgba(52, 211, 153, 0.2);
-  background: rgba(52, 211, 153, 0.14);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .overlay-toolbar-status.is-error {
@@ -431,15 +452,21 @@ button {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at top, rgba(0, 0, 0, 0.16), transparent 34%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.32)),
-    rgba(0, 0, 0, 0.24);
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.34)),
+    rgba(0, 0, 0, 0.2);
+  background-size:
+    18px 18px,
+    18px 18px,
+    auto,
+    auto;
 }
 
 .desktop-background {
   position: absolute;
   object-fit: fill;
-  filter: saturate(0.96) brightness(0.94);
+  filter: saturate(0.55) brightness(0.78) contrast(1.08);
   pointer-events: none;
   -webkit-user-drag: none;
 }
@@ -448,36 +475,36 @@ button {
   position: absolute;
   z-index: 6;
   pointer-events: none;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid rgba(255, 255, 255, 0.82);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.38),
-    0 18px 40px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(167, 139, 250, 0.2) inset;
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 0 22px rgba(255, 255, 255, 0.12);
   overflow: visible;
 }
 
 .selection-box::before {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: -8px;
   border-radius: inherit;
-  border: 1px solid rgba(167, 139, 250, 0.42);
-  opacity: 0.75;
+  border: 1px dashed rgba(255, 255, 255, 0.24);
+  opacity: 1;
 }
 
 .selection-dimensions {
   position: absolute;
-  top: -40px;
+  top: -34px;
   left: 0;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(12, 12, 12, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 12px;
+  padding: 7px 9px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 11px;
   font-weight: 700;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
+  letter-spacing: 0.04em;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
 }
 
 @media (max-width: 840px) {
@@ -506,12 +533,19 @@ button {
 }
 
 .result-card--minimal {
-  border-radius: 30px;
-  padding: 14px;
+  border-radius: 2px;
+  padding: 12px;
   -webkit-app-region: drag;
   background:
-    linear-gradient(180deg, rgba(12, 12, 14, 0.9), rgba(8, 8, 10, 0.96)),
-    rgba(10, 10, 12, 0.92);
+    linear-gradient(rgba(255, 255, 255, 0.021) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.017) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07), transparent 28%),
+    rgba(0, 0, 0, 0.97);
+  background-size:
+    18px 18px,
+    18px 18px,
+    auto,
+    auto;
 }
 
 .result-card--minimal::before {
@@ -519,14 +553,14 @@ button {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 16%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.045), transparent);
 }
 
 .result-backdrop-orb {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(66px);
-  opacity: 0.42;
+  display: none;
 }
 
 .result-backdrop-orb--violet {
@@ -534,7 +568,7 @@ button {
   left: -50px;
   width: 220px;
   height: 220px;
-  background: rgba(167, 139, 250, 0.18);
+  background: transparent;
 }
 
 .result-backdrop-orb--blue {
@@ -542,7 +576,7 @@ button {
   right: -60px;
   width: 200px;
   height: 200px;
-  background: rgba(96, 165, 250, 0.14);
+  background: transparent;
 }
 
 .result-minimal-shell {
@@ -553,7 +587,7 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .result-card--minimal.has-ask-composer .result-minimal-shell {
@@ -564,26 +598,49 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-height: 39px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .result-mini-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.result-mini-actions::before {
+  content: "✦  ANSWER · XEROLAS";
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 34px;
+  margin-right: 4px;
+  color: var(--text-soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .result-mini-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
   color: var(--text-soft);
   cursor: pointer;
   transition:
@@ -595,19 +652,17 @@ button {
 }
 
 .result-mini-action:hover {
-  transform: translateY(-1px);
+  transform: none;
   color: var(--text-main);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.44);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .result-mini-action.is-active {
   color: var(--text-main);
-  border-color: rgba(167, 139, 250, 0.3);
-  background:
-    linear-gradient(135deg, rgba(167, 139, 250, 0.18), rgba(96, 165, 250, 0.05)),
-    rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
 }
 
 .result-mini-action:disabled {
@@ -643,14 +698,15 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(96, 165, 250, 0.22);
-  background: rgba(96, 165, 250, 0.12);
+  padding: 7px 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.025);
   color: var(--text-main);
-  font-size: 12px;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   white-space: nowrap;
+  text-transform: uppercase;
 }
 
 .result-grounding-badge[hidden],
@@ -663,36 +719,31 @@ button {
 }
 
 .result-searching-badge {
-  border-color: rgba(255, 255, 255, 0.16);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.028)),
-    rgba(8, 8, 8, 0.42);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 14px 28px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: none;
   font-weight: 650;
-  backdrop-filter: blur(14px) saturate(0.95);
+  backdrop-filter: none;
+  text-transform: none;
 }
 
 .result-grounding-badge::before {
   content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: rgba(96, 165, 250, 0.95);
-  box-shadow: 0 0 14px rgba(96, 165, 250, 0.6);
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.42);
 }
 
 .result-asked-question {
   display: grid;
   gap: 6px;
   padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.024)),
-    rgba(8, 8, 8, 0.22);
-  backdrop-filter: blur(14px) saturate(0.95);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
+  backdrop-filter: none;
 }
 
 .result-asked-question-label {
@@ -714,12 +765,10 @@ button {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
-    rgba(8, 8, 8, 0.22);
-  backdrop-filter: blur(18px) saturate(0.95);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
+  backdrop-filter: none;
 }
 
 .result-ask-label {
@@ -734,9 +783,9 @@ button {
   width: 100%;
   min-height: 78px;
   resize: none;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 8, 8, 0.34);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(0, 0, 0, 0.56);
   color: var(--text-main);
   padding: 14px 16px;
   line-height: 1.6;
@@ -752,9 +801,9 @@ button {
 }
 
 .result-ask-textarea:focus {
-  border-color: rgba(167, 139, 250, 0.32);
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
-  background: rgba(8, 8, 8, 0.4);
+  border-color: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.64);
 }
 
 .result-ask-textarea:disabled {
@@ -788,8 +837,8 @@ button {
   justify-content: center;
   min-width: 78px;
   padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
   cursor: pointer;
   transition:
     transform 120ms ease,
@@ -800,7 +849,7 @@ button {
 }
 
 .result-ask-button:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .result-ask-button:disabled {
@@ -810,25 +859,25 @@ button {
 }
 
 .result-ask-button--ghost {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.018);
   color: var(--text-soft);
 }
 
 .result-ask-button--ghost:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-main);
 }
 
 .result-ask-button--primary {
-  border-color: rgba(167, 139, 250, 0.24);
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.26), rgba(96, 165, 250, 0.12));
+  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-main);
 }
 
 .result-ask-button--primary:hover {
-  border-color: rgba(167, 139, 250, 0.34);
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.34), rgba(96, 165, 250, 0.16));
+  border-color: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .result-ask-entry {
@@ -838,17 +887,16 @@ button {
   justify-content: center;
   min-height: 44px;
   padding: 11px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022)),
-    rgba(8, 8, 8, 0.24);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
   color: var(--text-main);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
-  backdrop-filter: blur(14px) saturate(0.95);
+  backdrop-filter: none;
   transition:
     transform 120ms ease,
     border-color 120ms ease,
@@ -857,11 +905,9 @@ button {
 }
 
 .result-ask-entry:hover {
-  transform: translateY(-1px);
-  border-color: rgba(167, 139, 250, 0.28);
-  background:
-    linear-gradient(180deg, rgba(167, 139, 250, 0.12), rgba(255, 255, 255, 0.028)),
-    rgba(8, 8, 8, 0.28);
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .result-ask-entry:disabled {
@@ -885,12 +931,13 @@ button {
 
 .result-body-copy--minimal {
   padding: 20px 20px 24px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 22%),
-    rgba(8, 8, 8, 0.34);
-  backdrop-filter: blur(18px) saturate(0.9);
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    rgba(0, 0, 0, 0.48);
+  background-size: 18px 18px;
+  backdrop-filter: none;
 }
 
 .result-body-copy h3 {
@@ -905,8 +952,8 @@ button {
 .result-body-copy p {
   margin: 0 0 18px;
   color: var(--text-soft);
-  font-size: 16px;
-  line-height: 1.8;
+  font-size: 15px;
+  line-height: 1.72;
 }
 
 .result-body-copy p:last-child {
@@ -921,10 +968,10 @@ button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-main);
-  font-size: 12px;
+  color: var(--text-soft);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: none;
   box-shadow: none;
 }
@@ -932,8 +979,9 @@ button {
 .result-body-copy.is-streaming {
   color: var(--text-main);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 22%),
-    rgba(8, 8, 8, 0.22);
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    rgba(0, 0, 0, 0.48);
+  background-size: 18px 18px;
 }
 
 .result-body-copy ul,
@@ -952,7 +1000,7 @@ button {
 
 .result-body-copy code {
   padding: 2px 6px;
-  border-radius: 8px;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.06);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
@@ -961,10 +1009,10 @@ button {
 
 .result-sources {
   padding: 14px 16px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 8, 8, 0.26);
-  backdrop-filter: blur(14px) saturate(0.9);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(255, 255, 255, 0.018);
+  backdrop-filter: none;
 }
 
 .result-sources-title {
@@ -1008,12 +1056,12 @@ button {
 @media (max-width: 640px) {
   .result-card--minimal {
     padding: 12px;
-    border-radius: 24px;
+    border-radius: 2px;
   }
 
   .result-body-copy--minimal {
     padding: 16px 16px 20px;
-    border-radius: 20px;
+    border-radius: 2px;
   }
 
   .result-topbar {
@@ -1037,7 +1085,7 @@ button {
   width: 100%;
   height: 100%;
   min-height: 0;
-  border-radius: 30px;
+  border-radius: 2px;
   padding: 14px;
   overflow: hidden;
   display: flex;
@@ -1045,8 +1093,15 @@ button {
   gap: 14px;
   -webkit-app-region: drag;
   background:
-    linear-gradient(180deg, rgba(12, 12, 14, 0.9), rgba(8, 8, 10, 0.96)),
-    rgba(10, 10, 12, 0.92);
+    linear-gradient(rgba(255, 255, 255, 0.021) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.017) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07), transparent 28%),
+    rgba(0, 0, 0, 0.97);
+  background-size:
+    18px 18px,
+    18px 18px,
+    auto,
+    auto;
 }
 
 .settings-shell::before {
@@ -1055,15 +1110,12 @@ button {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 18%),
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.05), transparent 24%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 16%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.045), transparent);
 }
 
 .settings-backdrop-orb {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(66px);
-  opacity: 0.36;
+  display: none;
 }
 
 .settings-backdrop-orb--violet {
@@ -1071,7 +1123,7 @@ button {
   left: -50px;
   width: 220px;
   height: 220px;
-  background: rgba(167, 139, 250, 0.16);
+  background: transparent;
 }
 
 .settings-backdrop-orb--blue {
@@ -1079,7 +1131,7 @@ button {
   right: -60px;
   width: 200px;
   height: 200px;
-  background: rgba(96, 165, 250, 0.12);
+  background: transparent;
 }
 
 .settings-header,
@@ -1096,7 +1148,8 @@ button {
 }
 
 .settings-header--minimal {
-  padding: 6px 6px 0;
+  padding: 6px 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .settings-header-copy {
@@ -1108,9 +1161,10 @@ button {
 .settings-title {
   margin: 0;
   color: var(--text-main);
-  font-size: clamp(34px, 8vw, 54px);
-  line-height: 0.95;
-  letter-spacing: -0.055em;
+  font-size: clamp(22px, 5.5vw, 34px);
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .settings-close {
@@ -1146,13 +1200,14 @@ button {
   display: grid;
   gap: 10px;
   padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.055), transparent 24%),
-    rgba(8, 8, 8, 0.32);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px) saturate(0.9);
+    linear-gradient(rgba(255, 255, 255, 0.017) 1px, transparent 1px),
+    rgba(0, 0, 0, 0.45);
+  background-size: 18px 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  backdrop-filter: none;
 }
 
 .settings-input-card,
@@ -1167,16 +1222,16 @@ button {
 }
 
 .settings-input-card .text-input {
-  border-radius: 18px;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(8, 8, 8, 0.34);
+  border-radius: 2px;
+  border-color: var(--terminal-line);
+  background: rgba(0, 0, 0, 0.56);
   padding: 14px 16px;
 }
 
 .settings-input-card .text-input:focus {
-  border-color: rgba(167, 139, 250, 0.32);
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
-  background: rgba(8, 8, 8, 0.4);
+  border-color: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.64);
 }
 
 .settings-provider-card {
@@ -1206,27 +1261,27 @@ button {
 
 .settings-check-row input,
 .settings-fallbacks input {
-  accent-color: rgba(167, 139, 250, 0.9);
+  accent-color: rgba(255, 255, 255, 0.9);
 }
 
 .settings-fallbacks {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(0, 0, 0, 0.18);
+  border-radius: 2px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.34);
 }
 
 .settings-provider-actions {
   margin-top: 0;
   justify-content: flex-start;
   padding: 10px;
-  background: rgba(8, 8, 8, 0.18);
+  background: rgba(0, 0, 0, 0.24);
 }
 
 .pill-button--secondary {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.018);
 }
 
 .settings-actions {
@@ -1237,23 +1292,23 @@ button {
   flex-wrap: wrap;
   gap: 12px;
   padding: 14px 16px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(8, 8, 8, 0.26);
-  backdrop-filter: blur(14px) saturate(0.9);
+  border-radius: 2px;
+  border: 1px solid var(--terminal-line);
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: none;
 }
 
 .settings-actions--minimal .pill-button {
   min-height: 42px;
   padding-inline: 18px;
   color: var(--text-main);
-  border-color: rgba(167, 139, 250, 0.24);
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.26), rgba(96, 165, 250, 0.12));
+  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .settings-actions--minimal .pill-button:hover {
-  border-color: rgba(167, 139, 250, 0.34);
-  background: linear-gradient(135deg, rgba(167, 139, 250, 0.34), rgba(96, 165, 250, 0.16));
+  border-color: rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .settings-actions-note {
@@ -1264,16 +1319,16 @@ button {
 @media (max-width: 640px) {
   .settings-shell {
     padding: 12px;
-    border-radius: 24px;
+    border-radius: 2px;
   }
 
   .settings-title {
-    font-size: 36px;
+    font-size: 28px;
   }
 
   .settings-card {
     padding: 16px;
-    border-radius: 20px;
+    border-radius: 2px;
   }
 
   .settings-actions {

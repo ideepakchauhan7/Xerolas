@@ -8,6 +8,7 @@ export interface AppConfig {
   updateGithubRepo?: string;
   defaultQuickActionId?: QuickActionId;
   defaultPromptTemplate?: string;
+  xerolasCloudGatewayBaseUrl?: string;
 }
 
 function sanitizeQuickActionId(value: unknown): QuickActionId | undefined {
@@ -44,12 +45,27 @@ function sanitizeAppConfig(value: unknown): AppConfig | null {
     typeof raw.defaultPromptTemplate === 'string' && raw.defaultPromptTemplate.trim()
       ? raw.defaultPromptTemplate.trim()
       : undefined;
+  const xerolasCloudGatewayBaseUrl =
+    typeof raw.xerolasCloudGatewayBaseUrl === 'string' && raw.xerolasCloudGatewayBaseUrl.trim()
+      ? raw.xerolasCloudGatewayBaseUrl.trim().replace(/\/+$/, '')
+      : undefined;
+
+  if (
+    !updateGithubOwner &&
+    !updateGithubRepo &&
+    !defaultPromptTemplate &&
+    !sanitizeQuickActionId(raw.defaultQuickActionId) &&
+    !xerolasCloudGatewayBaseUrl
+  ) {
+    return null;
+  }
 
   return {
     updateGithubOwner,
     updateGithubRepo,
     defaultQuickActionId: sanitizeQuickActionId(raw.defaultQuickActionId),
-    defaultPromptTemplate
+    defaultPromptTemplate,
+    xerolasCloudGatewayBaseUrl
   };
 }
 
@@ -71,7 +87,10 @@ export function loadAppConfig(): AppConfig | null {
     updateGithubOwner: process.env.CONTEXT_AI_UPDATE_GITHUB_OWNER,
     updateGithubRepo: process.env.CONTEXT_AI_UPDATE_GITHUB_REPO,
     defaultQuickActionId: process.env.CONTEXT_AI_DEFAULT_QUICK_ACTION_ID,
-    defaultPromptTemplate: process.env.CONTEXT_AI_DEFAULT_PROMPT
+    defaultPromptTemplate: process.env.CONTEXT_AI_DEFAULT_PROMPT,
+    xerolasCloudGatewayBaseUrl:
+      process.env.XEROLAS_CLOUD_GATEWAY_BASE_URL ||
+      process.env.XEROLAS_CLOUD_GATEWAY_URL
   });
 
   if (envConfig) {

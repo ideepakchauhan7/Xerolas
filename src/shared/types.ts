@@ -59,7 +59,9 @@ export interface SourceLink {
   host: string;
 }
 
-export type AiProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter';
+export type ByokAiProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter';
+export type ManagedAiProviderId = 'xerolas-cloud';
+export type AiProviderId = ByokAiProviderId | ManagedAiProviderId;
 
 export interface ProviderCredentialStatus {
   provider: AiProviderId;
@@ -222,17 +224,34 @@ export interface DesktopAssistantApi {
 }
 
 export const DEFAULT_TRANSLATE_TARGET_LANGUAGE = 'English';
-export const AI_PROVIDER_IDS: AiProviderId[] = ['anthropic', 'openai', 'gemini', 'openrouter'];
+export const BYOK_PROVIDER_IDS: ByokAiProviderId[] = ['anthropic', 'openai', 'gemini', 'openrouter'];
+export const MANAGED_PROVIDER_IDS: ManagedAiProviderId[] = ['xerolas-cloud'];
+export const AI_PROVIDER_IDS: AiProviderId[] = [...BYOK_PROVIDER_IDS, ...MANAGED_PROVIDER_IDS];
 
 export const DEFAULT_PROVIDER_MODELS: Record<AiProviderId, string> = {
   anthropic: 'claude-sonnet-4-5',
   openai: 'gpt-4.1-mini',
   gemini: 'gemini-2.5-flash',
-  openrouter: 'openrouter/free'
+  openrouter: 'openrouter/free',
+  'xerolas-cloud': 'managed'
 };
 
 export function isAiProviderId(value: unknown): value is AiProviderId {
-  return value === 'anthropic' || value === 'openai' || value === 'gemini' || value === 'openrouter';
+  return (
+    value === 'anthropic' ||
+    value === 'openai' ||
+    value === 'gemini' ||
+    value === 'openrouter' ||
+    value === 'xerolas-cloud'
+  );
+}
+
+export function isManagedAiProviderId(provider: AiProviderId): provider is ManagedAiProviderId {
+  return provider === 'xerolas-cloud';
+}
+
+export function isByokAiProviderId(provider: AiProviderId): provider is ByokAiProviderId {
+  return !isManagedAiProviderId(provider);
 }
 
 export function getAiProviderLabel(provider: AiProviderId): string {
@@ -245,13 +264,15 @@ export function getAiProviderLabel(provider: AiProviderId): string {
       return 'Gemini';
     case 'openrouter':
       return 'OpenRouter';
+    case 'xerolas-cloud':
+      return 'Xerolas Cloud';
   }
 }
 
 export function normalizeProviderModelOverrides(value: ProviderModelOverrides | null | undefined): ProviderModelOverrides {
   const overrides: ProviderModelOverrides = {};
 
-  AI_PROVIDER_IDS.forEach((provider) => {
+  BYOK_PROVIDER_IDS.forEach((provider) => {
     const model = value?.[provider]?.trim();
     if (model) {
       overrides[provider] = model;
@@ -265,11 +286,20 @@ export function normalizeFallbackProviderIds(
   value: AiProviderId[] | null | undefined,
   primaryProviderId: AiProviderId
 ): AiProviderId[] {
+  if (isManagedAiProviderId(primaryProviderId)) {
+    return [];
+  }
+
   const seen = new Set<AiProviderId>();
   const fallbackIds: AiProviderId[] = [];
 
   (Array.isArray(value) ? value : []).forEach((provider) => {
-    if (!isAiProviderId(provider) || provider === primaryProviderId || seen.has(provider)) {
+    if (
+      !isAiProviderId(provider) ||
+      isManagedAiProviderId(provider) ||
+      provider === primaryProviderId ||
+      seen.has(provider)
+    ) {
       return;
     }
 

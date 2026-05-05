@@ -35,6 +35,7 @@ import {
   normalizeTranslateTargetLanguage,
   HISTORY_LIMIT,
   isAiProviderId,
+  isManagedAiProviderId,
   type HistoryEntry,
   type HistoryViewModel,
   type OverlayPayload,
@@ -145,6 +146,7 @@ let captureInProgress = false;
 let lastError: string | null = null;
 let updateGithubOwner = '';
 let updateGithubRepo = '';
+let xerolasCloudGatewayBaseUrl = '';
 let appManagedDefaults: Partial<Pick<AppSettings, 'quickActionId' | 'promptTemplate'>> = {};
 let activeCaptureSessionId: number | null = null;
 let captureSessionQuickActionId: QuickActionId | null = null;
@@ -723,12 +725,24 @@ function hasPrimaryProviderKey(): boolean {
   return Boolean(readProviderApiKey(settings.primaryProviderId));
 }
 
+function getProviderKeyKind(provider: AiProviderId): string {
+  return isManagedAiProviderId(provider) ? 'platform key' : 'API key';
+}
+
+function isValidProviderKeyFormat(provider: AiProviderId, key: string): boolean {
+  if (!isManagedAiProviderId(provider)) {
+    return true;
+  }
+
+  return /^xlo_live_[A-Za-z0-9._-]{16,}$/.test(key.trim());
+}
+
 function getAnalysisConfigurationIssue(): string | null {
   if (hasPrimaryProviderKey()) {
     return null;
   }
 
-  return `Add a ${getAiProviderLabel(settings.primaryProviderId)} API key in Settings before capturing.`;
+  return `Add a ${getAiProviderLabel(settings.primaryProviderId)} ${getProviderKeyKind(settings.primaryProviderId)} in Settings before capturing.`;
 }
 
 function getAccessMessage(): string {
@@ -1745,6 +1759,7 @@ async function analyzeExistingImage(
         imageBytes,
         question: trimmedQuestion,
         settings,
+        xerolasCloudGatewayBaseUrl,
         readProviderKey: readProviderApiKey
       },
       streamHandlers
@@ -2190,7 +2205,11 @@ async function saveProviderKeyFromRenderer(input: { provider?: unknown; apiKey?:
   try {
     const provider = assertProviderId(input.provider);
     if (typeof input.apiKey !== 'string' || !input.apiKey.trim()) {
-      return buildProviderKeyActionResult(false, 'Enter an API key before saving.');
+      return buildProviderKeyActionResult(false, `Enter a ${getProviderKeyKind(provider)} before saving.`);
+    }
+
+    if (!isValidProviderKeyFormat(provider, input.apiKey)) {
+      return buildProviderKeyActionResult(false, 'Enter a valid Xerolas Cloud platform key that starts with xlo_live_.');
     }
 
     saveProviderApiKey(provider, input.apiKey);
@@ -2225,7 +2244,11 @@ async function testProviderConnectionFromRenderer(input: {
       : readProviderApiKey(provider);
 
     if (!candidateKey) {
-      return buildProviderKeyActionResult(false, `Add a ${getAiProviderLabel(provider)} API key before testing.`);
+      return buildProviderKeyActionResult(false, `Add a ${getAiProviderLabel(provider)} ${getProviderKeyKind(provider)} before testing.`);
+    }
+
+    if (!isValidProviderKeyFormat(provider, candidateKey)) {
+      return buildProviderKeyActionResult(false, 'Enter a valid Xerolas Cloud platform key that starts with xlo_live_.');
     }
 
     const modelOverride = typeof input.modelOverride === 'string' ? input.modelOverride.trim() : '';
@@ -2233,7 +2256,8 @@ async function testProviderConnectionFromRenderer(input: {
       provider,
       apiKey: candidateKey,
       model: modelOverride || settings.providerModelOverrides[provider] || DEFAULT_PROVIDER_MODELS[provider],
-      webSearchEnabled: Boolean(input.webSearchEnabled)
+      webSearchEnabled: Boolean(input.webSearchEnabled),
+      xerolasCloudGatewayBaseUrl
     });
 
     return buildProviderKeyActionResult(true, `${getAiProviderLabel(provider)} connection works.`);
@@ -2398,6 +2422,7 @@ app.whenReady().then(async () => {
   const appConfig = loadAppConfig();
   updateGithubOwner = appConfig?.updateGithubOwner ?? '';
   updateGithubRepo = appConfig?.updateGithubRepo ?? '';
+  xerolasCloudGatewayBaseUrl = appConfig?.xerolasCloudGatewayBaseUrl ?? '';
   appManagedDefaults = {
     quickActionId: sanitizePersistedQuickActionId(appConfig?.defaultQuickActionId),
     promptTemplate: appConfig?.defaultPromptTemplate

@@ -1,8 +1,9 @@
 import {
-  AI_PROVIDER_IDS,
+  BYOK_PROVIDER_IDS,
   DEFAULT_PROVIDER_MODELS,
   getAiProviderLabel,
   isAiProviderId,
+  isManagedAiProviderId,
   normalizeTranslateTargetLanguage,
   type AiProviderId,
   type ProviderCredentialStatus,
@@ -41,13 +42,23 @@ function getCredentialStatus(provider: AiProviderId): ProviderCredentialStatus |
 function renderCredentialStatus(): void {
   const provider = getSelectedProvider();
   const status = getCredentialStatus(provider);
+  const isManagedProvider = isManagedAiProviderId(provider);
   const modelOverride = currentViewModel?.settings.providerModelOverrides[provider]?.trim();
 
-  providerModelOverrideInput.placeholder = DEFAULT_PROVIDER_MODELS[provider];
-  providerModelOverrideInput.value = modelOverride ?? '';
+  providerModelOverrideInput.disabled = isManagedProvider;
+  providerModelOverrideInput.placeholder = isManagedProvider
+    ? 'Managed by Xerolas Cloud'
+    : DEFAULT_PROVIDER_MODELS[provider];
+  providerModelOverrideInput.value = isManagedProvider ? '' : modelOverride ?? '';
+  providerApiKeyInput.placeholder = isManagedProvider
+    ? 'Paste an xlo_live_ platform key'
+    : 'Paste a provider API key to save or test';
 
   fallbackProviderInputs.forEach((input) => {
-    input.disabled = input.value === provider;
+    input.disabled = isManagedProvider || input.value === provider;
+    if (isManagedProvider) {
+      input.checked = false;
+    }
   });
 
   if (!status) {
@@ -56,11 +67,13 @@ function renderCredentialStatus(): void {
   }
 
   if (status.configured) {
-    providerKeyStatus.textContent = `${getAiProviderLabel(provider)} key saved${status.last4 ? ` ending in ${status.last4}` : ''}.`;
+    const keyKind = isManagedProvider ? 'platform key' : 'API key';
+    providerKeyStatus.textContent = `${getAiProviderLabel(provider)} ${keyKind} saved${status.last4 ? ` ending in ${status.last4}` : ''}.`;
     return;
   }
 
-  providerKeyStatus.textContent = status.message ?? `${getAiProviderLabel(provider)} key is not configured.`;
+  const keyKind = isManagedProvider ? 'platform key' : 'API key';
+  providerKeyStatus.textContent = status.message ?? `${getAiProviderLabel(provider)} ${keyKind} is not configured.`;
 }
 
 function renderCredentialStatuses(statuses: ProviderCredentialStatus[]): void {
@@ -101,10 +114,10 @@ form.addEventListener('submit', async (event) => {
     translateTargetLanguage: normalizeTranslateTargetLanguage(translateTargetLanguageInput.value),
     primaryProviderId: getSelectedProvider(),
     fallbackProviderIds: fallbackProviderInputs
-      .filter((input) => input.checked && input.value !== getSelectedProvider())
+      .filter((input) => !isManagedAiProviderId(getSelectedProvider()) && input.checked && input.value !== getSelectedProvider())
       .map((input) => input.value)
       .filter(isAiProviderId),
-    providerModelOverrides: AI_PROVIDER_IDS.reduce((overrides, provider) => {
+    providerModelOverrides: BYOK_PROVIDER_IDS.reduce((overrides, provider) => {
       const currentValue = currentViewModel?.settings.providerModelOverrides[provider] ?? '';
       overrides[provider] = provider === getSelectedProvider()
         ? providerModelOverrideInput.value.trim()

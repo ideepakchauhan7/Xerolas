@@ -29,7 +29,7 @@
       <form id="settings-form" class="settings-form settings-form--minimal">
         <section class="settings-card settings-input-card settings-provider-card">
           <span class="field-label">AI Provider</span>
-          <span class="field-helper">Use your own key. Xerolas stores saved keys with OS encryption and never returns them to this window.</span>
+          <span class="field-helper">Use your own provider key, or choose Xerolas Cloud with a platform key issued from the Xerolas site. Saved keys use OS encryption and are never returned to this window.</span>
 
           <label class="settings-field-row">
             <span>Primary provider</span>
@@ -38,11 +38,12 @@
               <option value="openai">OpenAI</option>
               <option value="gemini">Gemini</option>
               <option value="openrouter">OpenRouter</option>
+              <option value="xerolas-cloud">Xerolas Cloud</option>
             </select>
           </label>
 
           <label class="settings-field-row">
-            <span>API key</span>
+            <span>Key</span>
             <input
               id="provider-api-key"
               class="text-input"
@@ -67,12 +68,12 @@
 
           <label class="settings-check-row">
             <input id="web-search-enabled" type="checkbox" />
-            <span>Enable provider-native web search when supported. This can add latency or provider-side cost.</span>
+            <span>Enable web-aware answers when supported. This can add latency, quota usage, or provider-side cost.</span>
           </label>
 
           <div class="settings-fallbacks">
             <span class="field-label">Fallback providers</span>
-            <span class="field-helper">Only used for retryable capacity or network failures. Auth, billing, invalid key, and bad request errors do not fallback.</span>
+            <span class="field-helper">Only used between BYOK providers for retryable capacity or network failures. Xerolas Cloud is primary-only and is never used as a silent fallback.</span>
             <label><input type="checkbox" name="fallback-provider" value="anthropic" /> Anthropic</label>
             <label><input type="checkbox" name="fallback-provider" value="openai" /> OpenAI</label>
             <label><input type="checkbox" name="fallback-provider" value="gemini" /> Gemini</label>

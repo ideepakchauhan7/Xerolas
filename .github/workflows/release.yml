@@ -45,6 +45,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           CONTEXT_AI_UPDATE_GITHUB_OWNER: ideepakchauhan7
           CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas
+          XEROLAS_CLOUD_GATEWAY_BASE_URL: https://xerolas-cloud.ideepakchauhan7.workers.dev
         run: npx electron-builder --publish never
 
       - name: Upload release artifacts

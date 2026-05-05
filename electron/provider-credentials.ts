@@ -49,7 +49,7 @@ function getStorageMessage(): string | null {
     return `Development-only plaintext storage is enabled by ${DEV_PLAINTEXT_ENV}=1.`;
   }
 
-  return 'OS key encryption is unavailable, so Xerolas cannot persist API keys on this system.';
+  return 'OS key encryption is unavailable, so Xerolas cannot persist provider keys on this system.';
 }
 
 function readStore(): StoredCredentialMap {
@@ -130,7 +130,7 @@ export function readProviderApiKey(provider: AiProviderId): string | null {
 export function saveProviderApiKey(provider: AiProviderId, apiKey: string): void {
   const normalizedKey = apiKey.trim();
   if (!normalizedKey) {
-    throw new Error('Enter an API key before saving.');
+    throw new Error('Enter a key before saving.');
   }
 
   const storage = getStorageMode();

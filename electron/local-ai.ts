@@ -1,7 +1,9 @@
 import {
   DEFAULT_PROVIDER_MODELS,
+  getAiProviderLabel,
   type AiProviderId,
   type AppSettings,
+  isManagedAiProviderId,
   type QuickActionId,
   type SourceLink
 } from '../src/shared/types';
@@ -15,6 +17,7 @@ export interface LocalAnalyzeImageInput {
   imageBytes: Uint8Array;
   question?: string;
   settings: AppSettings;
+  xerolasCloudGatewayBaseUrl?: string;
   readProviderKey: (provider: AiProviderId) => string | null;
 }
 
@@ -30,6 +33,7 @@ export interface ProviderConnectionTestInput {
   apiKey: string;
   model: string;
   webSearchEnabled: boolean;
+  xerolasCloudGatewayBaseUrl?: string;
 }
 
 interface ProviderStreamInput {
@@ -41,6 +45,7 @@ interface ProviderStreamInput {
   imageMimeType: string;
   imageBase64Data: string;
   webSearchEnabled: boolean;
+  xerolasCloudGatewayBaseUrl?: string;
 }
 
 interface ProviderStreamResult {
@@ -70,6 +75,8 @@ interface AnthropicContentBlock {
 
 const OPENAI_RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses';
 const ANTHROPIC_MESSAGES_ENDPOINT = 'https://api.anthropic.com/v1/messages';
+const XEROLAS_CLOUD_ANALYZE_STREAM_PATH = '/v1/analyze/stream';
+const XEROLAS_CLOUD_KEY_STATUS_PATH = '/v1/key/status';
 const IMAGE_MIME_TYPE = 'image/png';
 const MAX_SOURCES = 5;
 
@@ -183,6 +190,61 @@ function normalizeSource(titleValue: unknown, urlValue: unknown): SourceLink | n
   };
 }
 
+function normalizeSources(value: unknown): SourceLink[] {
+  const rawSources = Array.isArray(value) ? value : [];
+  const sources: SourceLink[] = [];
+
+  rawSources.forEach((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return;
+    }
+
+    const raw = entry as Record<string, unknown>;
+    const source = normalizeSource(raw.title ?? raw.host, raw.url);
+    if (source) {
+      sources.push(source);
+    }
+  });
+
+  return mergeSources([], sources);
+}
+
+function normalizeGatewayBaseUrl(value: string | undefined): string {
+  const baseUrl = value?.trim().replace(/\/+$/, '') ?? '';
+  if (!baseUrl) {
+    throw new ProviderRequestError(
+      'xerolas-cloud',
+      503,
+      'Xerolas Cloud gateway is not configured in this build.',
+      false
+    );
+  }
+
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+      throw new Error('Gateway URL must use HTTPS.');
+    }
+  } catch {
+    throw new ProviderRequestError(
+      'xerolas-cloud',
+      503,
+      'Xerolas Cloud gateway URL is invalid.',
+      false
+    );
+  }
+
+  return baseUrl;
+}
+
+function buildGatewayEndpoint(baseUrl: string | undefined, endpointPath: string): string {
+  const normalizedBaseUrl = normalizeGatewayBaseUrl(baseUrl);
+  const url = new URL(normalizedBaseUrl);
+  const basePath = url.pathname.replace(/\/+$/, '');
+  url.pathname = `${basePath}${endpointPath}`;
+  return url.toString();
+}
+
 function normalizeOpenAiSources(value: unknown): SourceLink[] {
   const annotations = Array.isArray(value) ? value : [];
   const sources: SourceLink[] = [];
@@ -292,6 +354,33 @@ async function parseProviderError(provider: AiProviderId, response: Response): P
     response.status,
     typeof message === 'string' && message.trim() ? message.trim() : `${provider} request failed.`,
     isRetryableStatus(response.status)
+  );
+}
+
+async function parseXerolasCloudError(response: Response): Promise<never> {
+  const rawBody = await response.text();
+  let payload: Record<string, unknown> = {};
+
+  try {
+    payload = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
+  } catch {
+    payload = {};
+  }
+
+  const errorPayload = payload.error && typeof payload.error === 'object'
+    ? payload.error as Record<string, unknown>
+    : null;
+  const message =
+    errorPayload?.message ??
+    payload.message ??
+    rawBody.trim() ??
+    'Xerolas Cloud request failed.';
+
+  throw new ProviderRequestError(
+    'xerolas-cloud',
+    response.status,
+    typeof message === 'string' && message.trim() ? message.trim() : 'Xerolas Cloud request failed.',
+    response.status >= 500 || response.status === 408 || response.status === 425
   );
 }
 
@@ -579,8 +668,155 @@ async function streamOpenRouterLocal(input: ProviderStreamInput, handlers: Local
   };
 }
 
+async function streamXerolasCloud(input: ProviderStreamInput, handlers: LocalAnalyzeStreamHandlers): Promise<ProviderStreamResult> {
+  const response = await fetch(buildGatewayEndpoint(input.xerolasCloudGatewayBaseUrl, XEROLAS_CLOUD_ANALYZE_STREAM_PATH), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream, application/json',
+      'X-Xerolas-Client': 'desktop'
+    },
+    body: JSON.stringify({
+      promptTemplate: input.promptTemplate,
+      question: input.question,
+      imageMimeType: input.imageMimeType,
+      imageBase64Data: input.imageBase64Data,
+      webSearchEnabled: input.webSearchEnabled
+    })
+  });
+
+  if (!response.ok) {
+    await parseXerolasCloudError(response);
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    const payload = await response.json() as Record<string, unknown>;
+    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+    if (!text) {
+      throw new Error('Xerolas Cloud returned no text for this capture.');
+    }
+
+    const sources = normalizeSources(payload.sources);
+    handlers.onDelta?.({ chunk: text, text });
+    handlers.onGrounding?.({
+      groundingUsed: Boolean(payload.groundingUsed) || sources.length > 0,
+      sources
+    });
+
+    return {
+      text,
+      provider: 'xerolas-cloud',
+      model: typeof payload.model === 'string' && payload.model.trim() ? payload.model.trim() : input.model,
+      groundingUsed: Boolean(payload.groundingUsed) || sources.length > 0,
+      sources
+    };
+  }
+
+  if (!response.body) {
+    throw new Error('Xerolas Cloud returned no stream for this capture.');
+  }
+
+  let aggregateText = '';
+  let model = input.model;
+  let groundingUsed = false;
+  let sources: SourceLink[] = [];
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const processEvent = (eventText: string): void => {
+    const dataLines = eventText
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart())
+      .filter(Boolean);
+    const dataText = dataLines.join('\n').trim();
+    if (!dataText || dataText === '[DONE]') {
+      return;
+    }
+
+    const payload = JSON.parse(dataText) as Record<string, unknown>;
+    const type = typeof payload.type === 'string' ? payload.type : '';
+
+    if (type === 'error') {
+      const message = typeof payload.message === 'string' && payload.message.trim()
+        ? payload.message.trim()
+        : 'Xerolas Cloud request failed.';
+      throw new ProviderRequestError('xerolas-cloud', 502, message, false);
+    }
+
+    if (typeof payload.model === 'string' && payload.model.trim()) {
+      model = payload.model.trim();
+    }
+
+    if ((type === 'search' || payload.webSearchInProgress === true) && !aggregateText) {
+      handlers.onSearch?.({ webSearchInProgress: true });
+    }
+
+    const nextSources = normalizeSources(payload.sources);
+    if (nextSources.length || payload.groundingUsed === true) {
+      groundingUsed = Boolean(payload.groundingUsed) || nextSources.length > 0;
+      sources = mergeSources(sources, nextSources);
+      handlers.onGrounding?.({ groundingUsed, sources });
+    }
+
+    const delta =
+      typeof payload.delta === 'string'
+        ? payload.delta
+        : typeof payload.chunk === 'string'
+          ? payload.chunk
+          : type === 'delta' && typeof payload.text === 'string'
+            ? payload.text
+            : '';
+    if (delta) {
+      aggregateText += delta;
+      handlers.onDelta?.({ chunk: delta, text: aggregateText });
+      return;
+    }
+
+    if ((type === 'done' || type === 'complete' || type === 'completed') && typeof payload.text === 'string' && !aggregateText) {
+      aggregateText = payload.text;
+      handlers.onDelta?.({ chunk: aggregateText, text: aggregateText });
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    const parts = buffer.replace(/\r\n/g, '\n').split('\n\n');
+    buffer = parts.pop() ?? '';
+
+    for (const part of parts) {
+      processEvent(part);
+    }
+
+    if (done) {
+      break;
+    }
+  }
+
+  if (buffer.trim()) {
+    processEvent(`${buffer.trim()}\n\n`);
+  }
+
+  if (!aggregateText.trim()) {
+    throw new Error('Xerolas Cloud returned no text for this capture.');
+  }
+
+  return {
+    text: aggregateText.trim(),
+    provider: 'xerolas-cloud',
+    model,
+    groundingUsed,
+    sources
+  };
+}
+
 async function streamProvider(input: ProviderStreamInput, handlers: LocalAnalyzeStreamHandlers): Promise<ProviderStreamResult> {
-  handlers.onMeta?.({ provider: input.provider, model: input.model, usedFallback: false });
+  handlers.onMeta?.({ provider: getAiProviderLabel(input.provider), model: input.model, usedFallback: false });
 
   if (input.provider === 'openai') {
     return streamOpenAi(input, handlers);
@@ -592,6 +828,10 @@ async function streamProvider(input: ProviderStreamInput, handlers: LocalAnalyze
 
   if (input.provider === 'gemini') {
     return streamGeminiLocal(input, handlers);
+  }
+
+  if (input.provider === 'xerolas-cloud') {
+    return streamXerolasCloud(input, handlers);
   }
 
   return streamOpenRouterLocal(input, handlers);
@@ -612,7 +852,7 @@ export async function streamAnalyzeImageLocally(
         throw new ProviderRequestError(
           provider,
           401,
-          `Add a ${provider} API key in Settings before capturing.`,
+          `Add a ${getAiProviderLabel(provider)} ${isManagedAiProviderId(provider) ? 'platform key' : 'API key'} in Settings before capturing.`,
           false
         );
       }
@@ -630,7 +870,8 @@ export async function streamAnalyzeImageLocally(
           question: input.question,
           imageMimeType: IMAGE_MIME_TYPE,
           imageBase64Data,
-          webSearchEnabled: input.settings.webSearchEnabled
+          webSearchEnabled: input.settings.webSearchEnabled,
+          xerolasCloudGatewayBaseUrl: input.xerolasCloudGatewayBaseUrl
         },
         {
           ...handlers,
@@ -661,6 +902,28 @@ export async function streamAnalyzeImageLocally(
 }
 
 export async function testProviderConnection(input: ProviderConnectionTestInput): Promise<void> {
+  if (input.provider === 'xerolas-cloud') {
+    const response = await fetch(buildGatewayEndpoint(input.xerolasCloudGatewayBaseUrl, XEROLAS_CLOUD_KEY_STATUS_PATH), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        Accept: 'application/json',
+        'X-Xerolas-Client': 'desktop'
+      }
+    });
+
+    if (!response.ok) {
+      await parseXerolasCloudError(response);
+    }
+
+    const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+    if (payload.valid === false || payload.revoked === true || payload.expired === true) {
+      throw new ProviderRequestError('xerolas-cloud', 401, 'This Xerolas Cloud key is not active.', false);
+    }
+
+    return;
+  }
+
   const transparentPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lz6qWQAAAABJRU5ErkJggg==';
 
@@ -672,7 +935,8 @@ export async function testProviderConnection(input: ProviderConnectionTestInput)
       promptTemplate: 'Reply with OK if this provider connection works.',
       imageMimeType: IMAGE_MIME_TYPE,
       imageBase64Data: transparentPngBase64,
-      webSearchEnabled: input.webSearchEnabled
+      webSearchEnabled: input.webSearchEnabled,
+      xerolasCloudGatewayBaseUrl: input.xerolasCloudGatewayBaseUrl
     },
     {}
   );

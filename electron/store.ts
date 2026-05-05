@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   type AiProviderId,
-  AI_PROVIDER_IDS,
   type AppSettings,
+  BYOK_PROVIDER_IDS,
   HISTORY_LIMIT,
   isAiProviderId,
   normalizeFallbackProviderIds,
@@ -111,7 +111,7 @@ function sanitizeProviderModelOverrides(value: unknown): ProviderModelOverrides 
 
   const raw = value as Record<string, unknown>;
   const overrides: ProviderModelOverrides = {};
-  AI_PROVIDER_IDS.forEach((provider) => {
+  BYOK_PROVIDER_IDS.forEach((provider) => {
     const model = typeof raw[provider] === 'string' ? raw[provider].trim() : '';
     if (model) {
       overrides[provider] = model;
