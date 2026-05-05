@@ -34,21 +34,21 @@ const BIG_FEATURES = [
     ),
   },
   {
-    eyebrow: "No Setup",
-    title: "Install it and use it.",
+    eyebrow: "Bring Your Own Key",
+    title: "Choose the provider you trust.",
     description:
-      "You do not need an API key, a model account, or a token budget. Xerolas handles the AI request path for you so the product feels ready from first launch.",
+      "Add your own provider key once in Settings. Xerolas keeps saved keys out of normal settings storage and uses only the provider path you choose.",
     bullets: [
       "No file upload flow or manual screenshot export",
-      "No API key entry or model configuration required",
+      "Provider keys are encrypted locally when the OS supports it",
       "Runs from the tray and stays ready in the background",
     ],
     visual: (
       <div className="relative rounded-xl bg-white/[0.03] border border-white/[0.06] p-5 font-mono text-xs overflow-hidden">
-        <div className="text-neutral-500 mb-4">setup-checklist · zero friction</div>
+        <div className="text-neutral-500 mb-4">setup-checklist · local control</div>
         {[
-          { label: "Account required", state: "No" },
-          { label: "API key required", state: "No" },
+          { label: "Xerolas account", state: "No" },
+          { label: "Your provider key", state: "Yes" },
           { label: "Manual uploads", state: "No" },
           { label: "Desktop install", state: "Yes" },
           { label: "Capture from any app", state: "Yes" },

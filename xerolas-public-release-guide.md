@@ -1,171 +1,119 @@
-# Xerolas Free Public Release Guide
+# Xerolas Public Release Guide
 
-This guide is the public release runbook for Xerolas using only free infrastructure:
+This guide is the release runbook for a public-source Xerolas build that does not ship Xerolas-owned AI provider keys.
 
-- Private source repo: `ideepakchauhan7/Xerolas`
-- Separate public downloads repo: `ideepakchauhan7/Xerolas-downloads`
-- Public GitHub Releases for installers and update metadata from the downloads repo
-- Free Vercel subdomain for the landing page
-- Cloudflare Worker at `https://xerolas.ideepakchauhan7.workers.dev`
-- No paid services, no custom domain, no license flow
-- Source code remains private
+## Release Architecture
 
-## Release architecture
+### Desktop App
 
-### Desktop app
+- Electron app packaged with `electron-builder`.
+- Users add their own Anthropic, OpenAI, Gemini, or OpenRouter key in Settings.
+- API keys are stored locally with Electron `safeStorage`; saved keys are never returned to the renderer.
+- Web search is off by default and can be enabled explicitly in Settings when the selected provider/model supports it.
+- Auto-update uses `electron-updater` and the public downloads repo.
 
-- Electron app packaged with `electron-builder`
-- Auto-update through `electron-updater`
-- Packaged app points to:
-  - `updateGithubOwner = ideepakchauhan7`
-  - `updateGithubRepo = Xerolas-downloads`
-  - `backendBaseUrl = https://xerolas.ideepakchauhan7.workers.dev`
+Packaged app defaults:
 
-### Backend
+- `updateGithubOwner = ideepakchauhan7`
+- `updateGithubRepo = Xerolas-downloads`
+- no default `backendBaseUrl`
 
-- Cloudflare Worker named `xerolas`
-- Public URL:
+### Optional Self-Hosted Gateway
 
-```text
-https://xerolas.ideepakchauhan7.workers.dev
-```
+The Cloudflare Worker remains available for self-hosted gateway deployments, but it is not the default public-source path.
 
-- Holds Gemini API key and session secret as Worker secrets
+Use a gateway only when you intentionally configure one through:
 
-### Public downloads
+- `build/app-config.json`
+- `config/app-config.local.json`
+- `CONTEXT_AI_BACKEND_URL`
+- `CONTEXT_AI_GATEWAY_URL`
 
-- Installers live in GitHub Releases for `ideepakchauhan7/Xerolas-downloads`
-- Landing page is the static `landing/` directory deployed to a free `*.vercel.app` subdomain
-- No custom domain is required
+If a gateway is configured, it must own its provider secrets and session/replay protection. Do not commit gateway secrets.
 
-## What gets published
+### Public Downloads
+
+- Installers live in GitHub Releases for `ideepakchauhan7/Xerolas-downloads`.
+- The landing page is the static `landing/` directory deployed to a free `*.vercel.app` subdomain.
+- No custom domain or paid release infrastructure is required.
+
+## What Gets Published
 
 Each public release should publish:
 
 - Windows `.exe`
 - macOS `.dmg`
-- Linux `.AppImage`
-- Linux `.deb`
 - Linux `.snap` for Snap Store / Ubuntu App Center distribution
+- Linux `.AppImage` as a manual portable package
+- Linux `.deb` as a manual package for users who specifically need Debian packaging
 - updater metadata such as `latest.yml`
 
-GitHub Releases are the single public source of truth for direct-download release artifacts. Snap Store publishing uses the generated `.snap` artifact as the store submission package.
+GitHub Releases are the public source of truth for direct-download artifacts. Snap Store publishing uses the generated `.snap` artifact as the store submission package.
 
-## One-time setup
+## One-Time Setup
 
-### 1. GitHub repo
+### 1. GitHub Repos
 
-Use this private source repo for development and CI:
+Source repo:
 
 ```text
 https://github.com/ideepakchauhan7/Xerolas.git
 ```
 
-Create this separate public downloads repo for public installers and updater metadata:
+Public downloads repo:
 
 ```text
 https://github.com/ideepakchauhan7/Xerolas-downloads
 ```
 
-Important: the downloads repo must be publicly reachable. If `https://github.com/ideepakchauhan7/Xerolas-downloads` returns `404` when opened in an incognito window, the landing page, GitHub Releases downloads, and auto-update checks will all fail for public users even though the source repo can remain private.
+The downloads repo must be publicly reachable. If it returns `404` in an incognito window, the landing page downloads and update checks will fail for public users.
 
-### 2. Cloudflare Worker secrets
+### 2. Provider Keys
 
-Set the required Worker secrets:
+For the default public app, provider keys are user-owned and entered in Settings. Do not add maintainer-owned AI keys to the packaged desktop app.
+
+For an optional self-hosted Worker gateway, set secrets only in Cloudflare:
 
 ```bash
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put CONTEXT_AI_SESSION_SECRET
 ```
 
-Optional Gemini/OpenRouter fallback settings:
+Optional gateway fallback settings:
 
+- `OPENROUTER_API_KEY`
 - `CONTEXT_AI_GEMINI_MODEL`
 - `CONTEXT_AI_GEMINI_FALLBACK_MODEL`
-- `OPENROUTER_API_KEY` for the free `openrouter/free` fallback when Gemini is at capacity
-- `CONTEXT_AI_OPENROUTER_MODEL` defaults to `openrouter/free`
-- `CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH` defaults to `false`; OpenRouter web search may incur extra cost even with free models, so enable only intentionally
-- `CONTEXT_AI_SESSION_TTL_SECONDS`
-- `CONTEXT_AI_ALLOWED_ORIGINS` comma-separated browser origins to allow; leave unset to block browser-origin API use
-- `CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE` defaults to `12`
-- `CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE` defaults to `30`
+- `CONTEXT_AI_OPENROUTER_MODEL`
+- `CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH`
+- `CONTEXT_AI_ALLOWED_ORIGINS`
+- `CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE`
+- `CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE`
 
-### 3. GitHub token for cross-repo releases
+### 3. GitHub Token For Cross-Repo Releases
 
-Add a repository secret named `DOWNLOADS_REPO_TOKEN` to the private source repo. Use a personal access token or fine-grained token with `contents: write` access to `ideepakchauhan7/Xerolas-downloads` so GitHub Actions in the private source repo can create releases in the public downloads repo.
+Add a repository secret named `DOWNLOADS_REPO_TOKEN` to the source repo. Use a fine-grained token with `contents: write` access to `ideepakchauhan7/Xerolas-downloads` so GitHub Actions can create releases in the public downloads repo.
 
 ### 4. Vercel
 
 Deploy the repo to a free Vercel project and either:
 
 - set the Root Directory to `landing`, or
-- keep the repo root and use the included `vercel.json` rewrite config
+- keep the repo root and use the included `vercel.json` config.
 
 Use the default `*.vercel.app` URL only.
 
-Do not configure:
+## Release Flow
 
-- custom domains
-- paid Vercel features
-- private release proxies
+1. Update the desktop app version in `package.json`.
+2. Run verification locally.
+3. Create and push a release tag such as `v0.1.29`.
+4. GitHub Actions builds artifacts on Ubuntu, Windows, and macOS.
+5. The workflow uploads installers and updater metadata to `ideepakchauhan7/Xerolas-downloads`.
+6. The landing page reads the latest public GitHub Release.
+7. Installed apps update through public GitHub Releases.
 
-## Release flow
-
-### Step 1 — Update version
-
-Update the desktop app version in `package.json`.
-
-### Step 2 — Push the release tag
-
-Create and push a tag such as:
-
-```bash
-git tag v0.1.10
-git push origin v0.1.10
-```
-
-### Step 3 — GitHub Actions builds the release
-
-The release workflow runs in the private source repo on the tag and builds artifacts on:
-
-- Ubuntu
-- Windows
-- macOS
-
-The workflow uploads all generated installers and updater metadata to the matching GitHub Release in `ideepakchauhan7/Xerolas-downloads`.
-
-### Step 4 — Landing page reads the latest release
-
-The landing page calls the GitHub Releases API for:
-
-```text
-ideepakchauhan7/Xerolas-downloads
-```
-
-It automatically shows:
-
-- latest version
-- release notes
-- download links for Windows / macOS / Linux
-
-### Step 5 — Installed apps update automatically
-
-Packaged Xerolas builds check public GitHub Releases in `ideepakchauhan7/Xerolas-downloads` on launch and download updates in the background through `electron-updater`.
-
-## Immediate Worker cutover
-
-This release plan assumes a hard cutover from the old `context-ai` Worker name to the new `xerolas` Worker name.
-
-That means:
-
-- all new docs point only to `xerolas.ideepakchauhan7.workers.dev`
-- example config points only to `xerolas.ideepakchauhan7.workers.dev`
-- packaged defaults point only to `xerolas.ideepakchauhan7.workers.dev`
-- the release repo points only to `ideepakchauhan7/Xerolas-downloads`
-
-Older builds that still point at the old Worker URL are not preserved by this guide.
-
-## Required verification before each public release
+## Required Verification Before Public Release
 
 Run:
 
@@ -173,27 +121,25 @@ Run:
 npm run typecheck
 npm run build
 npx electron-builder --dir
-HOME=/tmp XDG_CONFIG_HOME=/tmp npx wrangler deploy --dry-run
+npm audit --audit-level=moderate
 ```
 
 Then verify:
 
-1. `https://xerolas.ideepakchauhan7.workers.dev/health` responds
-2. the landing page pulls the latest GitHub Release from `ideepakchauhan7/Xerolas-downloads`
-3. the packaged config points at:
-   - `updateGithubOwner = ideepakchauhan7`
-   - `updateGithubRepo = Xerolas-downloads`
-   - `backendBaseUrl = https://xerolas.ideepakchauhan7.workers.dev`
+1. `build/app-config.json` contains update repo defaults but no default `backendBaseUrl`.
+2. A fresh app install without a key opens Settings and fails capture gracefully without sending a screenshot.
+3. Saving a provider key does not put the full key in `settings.json`.
+4. `rg` finds no real provider keys in current files.
+5. `git log -G` finds no real provider keys in history; rotate any key that ever touched git.
+6. Landing downloads still point at `ideepakchauhan7/Xerolas-downloads`.
 
-## Free-stack summary
+## Free-Stack Summary
 
 - Desktop shell: Electron
-- Backend: Cloudflare Workers
-- AI: Gemini free-tier models
+- AI provider: user-selected BYOK provider
+- Optional gateway: Cloudflare Worker
 - Installers: GitHub Releases
 - Auto-update: `electron-updater` + GitHub Releases
 - Public site: Vercel `*.vercel.app`
 
-Total required paid services: none.
-
-Assumption used in this guide: the public downloads repo is `ideepakchauhan7/Xerolas-downloads`. If you choose a different public repo name, update the workflow, landing page, and packaged app defaults together.
+Total required paid services for Xerolas infrastructure: none. Users are responsible for their own provider account limits, billing rules, and API usage.

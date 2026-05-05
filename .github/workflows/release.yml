@@ -43,7 +43,6 @@ jobs:
       - name: Build release artifacts
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          CONTEXT_AI_BACKEND_URL: https://xerolas.ideepakchauhan7.workers.dev
           CONTEXT_AI_UPDATE_GITHUB_OWNER: ideepakchauhan7
           CONTEXT_AI_UPDATE_GITHUB_REPO: Xerolas-downloads
         run: npx electron-builder --publish never

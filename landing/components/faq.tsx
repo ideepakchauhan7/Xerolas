@@ -7,12 +7,12 @@ const FAQ_ITEMS = [
   {
     question: "Is Xerolas really free?",
     answer:
-      "Yes. Xerolas is free to download and use through the current public release flow. There is no account creation step and no paid plan required to install it.",
+      "Yes. Xerolas is free to download and install through the current public release flow. Your AI provider may have its own usage limits or billing rules.",
   },
   {
-    question: "Do I need an API key or account?",
+    question: "Do I need an API key?",
     answer:
-      "No. You do not need a model account or your own API key. Xerolas handles the AI request path for you so the app works right after install.",
+      "Yes. Xerolas now uses a bring-your-own-key model for public builds. Add a provider key once in Settings, then capture from anywhere on your desktop.",
   },
   {
     question: "Is my screen data private?",
@@ -37,7 +37,7 @@ const FAQ_ITEMS = [
   {
     question: "Does Xerolas use web search?",
     answer:
-      "Yes. When live context would help, Xerolas can use web search and show source links in the result panel. Simple visual tasks still answer directly.",
+      "Yes, when you explicitly enable it in Settings and the selected provider supports it. When search is used, Xerolas shows source links in the result panel.",
   },
   {
     question: "Can I customize what the AI does?",

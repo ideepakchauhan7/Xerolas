@@ -6,6 +6,7 @@ release
 *.log
 .env
 .env.*
+!.env.example
 .DS_Store
 .codex
 config/app-config.local.json

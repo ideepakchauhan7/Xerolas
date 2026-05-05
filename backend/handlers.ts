@@ -356,7 +356,8 @@ async function analyzeWithConfiguredProviders(
         promptTemplate: payload.promptTemplate,
         question: payload.question,
         imageMimeType: payload.imageMimeType,
-        imageBase64Data: payload.imageBase64Data
+        imageBase64Data: payload.imageBase64Data,
+        enableWebSearch: true
       });
 
       return {
@@ -408,7 +409,8 @@ async function openStreamWithConfiguredProviders(
         promptTemplate: payload.promptTemplate,
         question: payload.question,
         imageMimeType: payload.imageMimeType,
-        imageBase64Data: payload.imageBase64Data
+        imageBase64Data: payload.imageBase64Data,
+        enableWebSearch: true
       });
 
       return {

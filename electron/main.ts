@@ -17,18 +17,24 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import {
+  type AiProviderId,
   type AnalysisResult,
   type AppRuntimeState,
   type AppSettings,
   type AskQuestionState,
   DEFAULT_SETTINGS,
+  DEFAULT_PROVIDER_MODELS,
   DEFAULT_TRANSLATE_TARGET_LANGUAGE,
   type DisplaySnapshot,
+  getAiProviderLabel,
   getQuickActionById,
   getQuickActionLabel,
   getQuickActionPrompt,
+  normalizeFallbackProviderIds,
+  normalizeProviderModelOverrides,
   normalizeTranslateTargetLanguage,
   HISTORY_LIMIT,
+  isAiProviderId,
   type HistoryEntry,
   type HistoryViewModel,
   type OverlayPayload,
@@ -59,6 +65,17 @@ import {
   saveSettings as persistSettings
 } from './store';
 import { createPerfSession, isPerfLoggingEnabled, perfMark, type PerfSession } from './perf';
+import {
+  clearProviderApiKey,
+  getProviderCredentialStatuses,
+  readProviderApiKey,
+  saveProviderApiKey
+} from './provider-credentials';
+import {
+  type LocalAnalyzeStreamHandlers,
+  streamAnalyzeImageLocally,
+  testProviderConnection as testLocalProviderConnection
+} from './local-ai';
 
 app.setName('Xerolas');
 app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal');
@@ -84,7 +101,7 @@ const TRANSPARENT_WINDOW_BACKGROUND = '#00000000';
 const SHOULD_PREWARM_OVERLAY_WINDOW = process.platform !== 'linux';
 const WIDGET_SIZE = { width: 164, height: 84 };
 const RESULT_MIN_SIZE = { width: 340, height: 252 }; // keep the answer compact by default while still large enough to read
-const SETTINGS_WINDOW_SIZE = { width: 520, height: 420 };
+const SETTINGS_WINDOW_SIZE = { width: 560, height: 660 };
 const WINDOW_PREWARM_DELAY_MS = 180;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const LEGACY_DEFAULT_SHORTCUTS = new Set([
@@ -726,7 +743,7 @@ function isLocalDevelopmentBackend(baseUrl: string): boolean {
 
 function getBackendConfigurationIssue(): string | null {
   if (!backendBaseUrl) {
-    return 'This build is missing a backend gateway URL.';
+    return 'No self-hosted backend gateway URL is configured.';
   }
 
   let parsedUrl: URL;
@@ -745,6 +762,26 @@ function getBackendConfigurationIssue(): string | null {
   }
 
   return null;
+}
+
+function hasPrimaryProviderKey(): boolean {
+  return Boolean(readProviderApiKey(settings.primaryProviderId));
+}
+
+function shouldUseGatewayAnalysis(): boolean {
+  return !hasPrimaryProviderKey() && Boolean(backendBaseUrl);
+}
+
+function getAnalysisConfigurationIssue(): string | null {
+  if (hasPrimaryProviderKey()) {
+    return null;
+  }
+
+  if (backendBaseUrl) {
+    return getBackendConfigurationIssue();
+  }
+
+  return `Add a ${getAiProviderLabel(settings.primaryProviderId)} API key in Settings before capturing.`;
 }
 
 function isBackendSessionFresh(session: BackendSession | null, nowMs = Date.now()): boolean {
@@ -777,7 +814,7 @@ async function fetchBackendSession(forceRefresh = false): Promise<BackendSession
 }
 
 async function warmBackendSession(): Promise<void> {
-  if (getBackendConfigurationIssue()) {
+  if (!shouldUseGatewayAnalysis() || getBackendConfigurationIssue()) {
     return;
   }
 
@@ -792,9 +829,9 @@ async function warmBackendSession(): Promise<void> {
 }
 
 function getAccessMessage(): string {
-  const backendConfigurationIssue = getBackendConfigurationIssue();
-  if (backendConfigurationIssue) {
-    return backendConfigurationIssue;
+  const analysisConfigurationIssue = getAnalysisConfigurationIssue();
+  if (analysisConfigurationIssue) {
+    return analysisConfigurationIssue;
   }
 
   return `Ready. Use ${settings.shortcut || DEFAULT_SETTINGS.shortcut} to capture a region.`;
@@ -804,8 +841,9 @@ function buildSettingsViewModel(): SettingsViewModel {
   return {
     settings,
     shortcutRegistered,
-    backendConfigured: !getBackendConfigurationIssue(),
-    backendBaseUrl: backendBaseUrl || null
+    backendConfigured: !getAnalysisConfigurationIssue(),
+    backendBaseUrl: backendBaseUrl || null,
+    credentialStatuses: getProviderCredentialStatuses()
   };
 }
 
@@ -1689,9 +1727,9 @@ async function analyzeExistingImage(
   captureSessionId: number,
   options: { repositionResult?: boolean; question?: string } = {}
 ): Promise<void> {
-  const backendConfigurationIssue = getBackendConfigurationIssue();
-  if (backendConfigurationIssue) {
-    throw new Error(backendConfigurationIssue);
+  const analysisConfigurationIssue = getAnalysisConfigurationIssue();
+  if (analysisConfigurationIssue) {
+    throw new Error(analysisConfigurationIssue);
   }
 
   const promptTemplate = resolvePromptTemplateForQuickAction(quickActionId, fallbackPromptTemplate);
@@ -1726,7 +1764,8 @@ async function analyzeExistingImage(
   };
   resultWindowAutoResizeEnabled = true;
   pushResultStreamState(initialStreamState);
-  const sessionPromise = fetchBackendSession();
+  const useGateway = shouldUseGatewayAnalysis();
+  const sessionPromise = useGateway ? fetchBackendSession() : Promise.resolve(null);
   await showResultWindow({
     reposition: options.repositionResult,
     selection,
@@ -1741,7 +1780,66 @@ async function analyzeExistingImage(
     question: trimmedQuestion ?? null
   });
 
-  const startStream = async (sessionToken: string) =>
+  const streamHandlers: LocalAnalyzeStreamHandlers = {
+    onMeta: ({ model, usedFallback }) => {
+      if (!isCaptureSessionActive(captureSessionId)) {
+        return;
+      }
+
+      markCapturePerf('backend-stream-meta', {
+        model,
+        usedFallback
+      });
+    },
+    onSearch: ({ webSearchInProgress: nextWebSearchInProgress }) => {
+      if (!isCaptureSessionActive(captureSessionId) || !nextWebSearchInProgress || activeStreamText) {
+        return;
+      }
+
+      webSearchInProgress = true;
+      pushResultStreamState({
+        status: 'loading',
+        quickActionId,
+        text: '',
+        message: 'Searching the web…',
+        selection,
+        webSearchInProgress
+      });
+    },
+    onDelta: ({ text }) => {
+      if (!isCaptureSessionActive(captureSessionId)) {
+        return;
+      }
+
+      activeStreamText = text;
+      webSearchInProgress = false;
+      pushResultStreamState({
+        status: 'streaming',
+        quickActionId,
+        text,
+        message: null,
+        selection,
+        webSearchInProgress: false
+      });
+    },
+    onGrounding: ({ groundingUsed, sources }) => {
+      if (!isCaptureSessionActive(captureSessionId) || (!groundingUsed && !sources.length) || activeStreamText) {
+        return;
+      }
+
+      webSearchInProgress = true;
+      pushResultStreamState({
+        status: 'loading',
+        quickActionId,
+        text: '',
+        message: 'Searching the web…',
+        selection,
+        webSearchInProgress
+      });
+    }
+  };
+
+  const startGatewayStream = async (activeSession: BackendSession) =>
     streamAnalyzeImage(
       {
         backendBaseUrl,
@@ -1750,77 +1848,33 @@ async function analyzeExistingImage(
         imageBytes,
         appVersion: app.getVersion(),
         platform: process.platform,
-        sessionToken,
-        sessionClockOffsetMs: session.serverClockOffsetMs,
+        sessionToken: activeSession.token,
+        sessionClockOffsetMs: activeSession.serverClockOffsetMs,
         question: trimmedQuestion
       },
+      streamHandlers
+    );
+
+  const startLocalStream = async () =>
+    streamAnalyzeImageLocally(
       {
-        onMeta: ({ model, usedFallback }) => {
-          if (!isCaptureSessionActive(captureSessionId)) {
-            return;
-          }
-
-          markCapturePerf('backend-stream-meta', {
-            model,
-            usedFallback
-          });
-        },
-        onSearch: ({ webSearchInProgress: nextWebSearchInProgress }) => {
-          if (!isCaptureSessionActive(captureSessionId) || !nextWebSearchInProgress || activeStreamText) {
-            return;
-          }
-
-          webSearchInProgress = true;
-          pushResultStreamState({
-            status: 'loading',
-            quickActionId,
-            text: '',
-            message: 'Searching the web…',
-            selection,
-            webSearchInProgress
-          });
-        },
-        onDelta: ({ text }) => {
-          if (!isCaptureSessionActive(captureSessionId)) {
-            return;
-          }
-
-          activeStreamText = text;
-          webSearchInProgress = false;
-          pushResultStreamState({
-            status: 'streaming',
-            quickActionId,
-            text,
-            message: null,
-            selection,
-            webSearchInProgress: false
-          });
-        },
-        onGrounding: ({ groundingUsed, sources }) => {
-          if (!isCaptureSessionActive(captureSessionId) || (!groundingUsed && !sources.length) || activeStreamText) {
-            return;
-          }
-
-          webSearchInProgress = true;
-          pushResultStreamState({
-            status: 'loading',
-            quickActionId,
-            text: '',
-            message: 'Searching the web…',
-            selection,
-            webSearchInProgress
-          });
-        }
-      }
+        quickActionId,
+        promptTemplate,
+        imageBytes,
+        question: trimmedQuestion,
+        settings,
+        readProviderKey: readProviderApiKey
+      },
+      streamHandlers
     );
 
   let analysis: Awaited<ReturnType<typeof streamAnalyzeImage>>;
   try {
-    analysis = await startStream(session.token);
+    analysis = useGateway && session ? await startGatewayStream(session) : await startLocalStream();
   } catch (error) {
-    if (error instanceof GatewayRequestError && error.status === 401) {
+    if (useGateway && error instanceof GatewayRequestError && error.status === 401) {
       session = await fetchBackendSession(true);
-      analysis = await startStream(session.token);
+      analysis = await startGatewayStream(session);
     } else {
       if (!isCaptureSessionActive(captureSessionId)) {
         return;
@@ -1897,9 +1951,9 @@ async function finalizeCapture(selection: SelectionPayload, captureSessionId: nu
 
   setActiveCaptureContext(createActiveCaptureContext(imageDataUrl, imageBytes, selection));
 
-  const backendConfigurationIssue = getBackendConfigurationIssue();
-  if (backendConfigurationIssue) {
-    throw new Error(backendConfigurationIssue);
+  const analysisConfigurationIssue = getAnalysisConfigurationIssue();
+  if (analysisConfigurationIssue) {
+    throw new Error(analysisConfigurationIssue);
   }
 
   const captureQuickActionId = captureSessionQuickActionId ?? sanitizePersistedQuickActionId(settings.quickActionId);
@@ -2118,8 +2172,36 @@ function registerShortcut(nextShortcut: string): boolean {
   return shortcutRegistered;
 }
 
+function sanitizeProviderId(value: unknown, fallback: AiProviderId): AiProviderId {
+  return isAiProviderId(value) ? value : fallback;
+}
+
+function sanitizeProviderModelOverridesPatch(
+  patchOverrides: SaveSettingsInput['providerModelOverrides'] | undefined
+) {
+  if (patchOverrides === undefined) {
+    return settings.providerModelOverrides;
+  }
+
+  return normalizeProviderModelOverrides({
+    ...settings.providerModelOverrides,
+    ...patchOverrides
+  });
+}
+
 async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettingsResult> {
   const previousQuickActionId = settings.quickActionId;
+  const nextPrimaryProviderId = sanitizeProviderId(
+    patch.primaryProviderId,
+    settings.primaryProviderId
+  );
+  const nextProviderModelOverrides = sanitizeProviderModelOverridesPatch(
+    patch.providerModelOverrides
+  );
+  const nextFallbackProviderIds =
+    patch.fallbackProviderIds !== undefined
+      ? normalizeFallbackProviderIds(patch.fallbackProviderIds, nextPrimaryProviderId)
+      : normalizeFallbackProviderIds(settings.fallbackProviderIds, nextPrimaryProviderId);
   const trimmedPromptTemplate = patch.promptTemplate?.trim();
   const nextTranslateTargetLanguage =
     patch.translateTargetLanguage !== undefined
@@ -2170,6 +2252,11 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
     quickActionId: normalizedQuickActionId,
     promptTemplate: nextPromptTemplate,
     translateTargetLanguage: nextTranslateTargetLanguage,
+    primaryProviderId: nextPrimaryProviderId,
+    fallbackProviderIds: nextFallbackProviderIds,
+    providerModelOverrides: nextProviderModelOverrides,
+    webSearchEnabled:
+      patch.webSearchEnabled !== undefined ? Boolean(patch.webSearchEnabled) : settings.webSearchEnabled,
     shortcut: patch.shortcut !== undefined ? patch.shortcut.trim() : settings.shortcut,
     widgetPositions: patch.widgetPositions ?? settings.widgetPositions
   };
@@ -2183,8 +2270,9 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
         message: `The shortcut "${nextSettings.shortcut}" could not be registered on this system.`,
         settings,
         shortcutRegistered,
-        backendConfigured: !getBackendConfigurationIssue(),
-        backendBaseUrl: backendBaseUrl || null
+        backendConfigured: !getAnalysisConfigurationIssue(),
+        backendBaseUrl: backendBaseUrl || null,
+        credentialStatuses: getProviderCredentialStatuses()
       };
     }
   }
@@ -2203,9 +2291,82 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
     message: messageParts.join(' '),
     settings,
     shortcutRegistered,
-    backendConfigured: !getBackendConfigurationIssue(),
-    backendBaseUrl: backendBaseUrl || null
+    backendConfigured: !getAnalysisConfigurationIssue(),
+    backendBaseUrl: backendBaseUrl || null,
+    credentialStatuses: getProviderCredentialStatuses()
   };
+}
+
+function buildProviderKeyActionResult(success: boolean, message: string) {
+  return {
+    success,
+    message,
+    credentialStatuses: getProviderCredentialStatuses()
+  };
+}
+
+function assertProviderId(value: unknown): AiProviderId {
+  if (!isAiProviderId(value)) {
+    throw new Error('Choose a supported AI provider.');
+  }
+
+  return value;
+}
+
+async function saveProviderKeyFromRenderer(input: { provider?: unknown; apiKey?: unknown }) {
+  try {
+    const provider = assertProviderId(input.provider);
+    if (typeof input.apiKey !== 'string' || !input.apiKey.trim()) {
+      return buildProviderKeyActionResult(false, 'Enter an API key before saving.');
+    }
+
+    saveProviderApiKey(provider, input.apiKey);
+    broadcastState();
+    return buildProviderKeyActionResult(true, `${getAiProviderLabel(provider)} key saved securely.`);
+  } catch (error) {
+    return buildProviderKeyActionResult(false, error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function clearProviderKeyFromRenderer(providerInput: unknown) {
+  try {
+    const provider = assertProviderId(providerInput);
+    clearProviderApiKey(provider);
+    broadcastState();
+    return buildProviderKeyActionResult(true, `${getAiProviderLabel(provider)} key removed.`);
+  } catch (error) {
+    return buildProviderKeyActionResult(false, error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function testProviderConnectionFromRenderer(input: {
+  provider?: unknown;
+  apiKey?: unknown;
+  modelOverride?: unknown;
+  webSearchEnabled?: unknown;
+}) {
+  try {
+    const provider = assertProviderId(input.provider);
+    const candidateKey = typeof input.apiKey === 'string' && input.apiKey.trim()
+      ? input.apiKey.trim()
+      : readProviderApiKey(provider);
+
+    if (!candidateKey) {
+      return buildProviderKeyActionResult(false, `Add a ${getAiProviderLabel(provider)} API key before testing.`);
+    }
+
+    const modelOverride = typeof input.modelOverride === 'string' ? input.modelOverride.trim() : '';
+    await testLocalProviderConnection({
+      provider,
+      apiKey: candidateKey,
+      model: modelOverride || settings.providerModelOverrides[provider] || DEFAULT_PROVIDER_MODELS[provider],
+      webSearchEnabled: Boolean(input.webSearchEnabled)
+    });
+
+    return buildProviderKeyActionResult(true, `${getAiProviderLabel(provider)} connection works.`);
+  } catch (error) {
+    return buildProviderKeyActionResult(false, error instanceof Error ? getErrorMessage(error) : String(error));
+  }
 }
 
 function installIpcHandlers(): void {
@@ -2278,6 +2439,22 @@ function installIpcHandlers(): void {
   ipcMain.handle('settings:get', () => buildSettingsViewModel());
   ipcMain.handle('settings:save', async (_event, patch: SaveSettingsInput) =>
     saveSettingsPatch(patch)
+  );
+  ipcMain.handle('provider-key:save', async (_event, input) =>
+    saveProviderKeyFromRenderer(input as { provider?: unknown; apiKey?: unknown })
+  );
+  ipcMain.handle('provider-key:clear', async (_event, provider) =>
+    clearProviderKeyFromRenderer(provider)
+  );
+  ipcMain.handle('provider-key:test', async (_event, input) =>
+    testProviderConnectionFromRenderer(
+      input as {
+        provider?: unknown;
+        apiKey?: unknown;
+        modelOverride?: unknown;
+        webSearchEnabled?: unknown;
+      }
+    )
   );
   ipcMain.handle('overlay:getPayload', () => overlayPayload);
   ipcMain.handle('overlay:cancel', async () => {
@@ -2393,6 +2570,17 @@ app.whenReady().then(async () => {
         height: Math.max(loadedSettings.resultWindowSize.height, DEFAULT_SETTINGS.resultWindowSize.height)
       }
     : DEFAULT_SETTINGS.resultWindowSize;
+  const initialPrimaryProviderId = sanitizeProviderId(
+    loadedSettings.primaryProviderId,
+    DEFAULT_SETTINGS.primaryProviderId
+  );
+  const initialProviderModelOverrides = normalizeProviderModelOverrides(
+    loadedSettings.providerModelOverrides
+  );
+  const initialFallbackProviderIds = normalizeFallbackProviderIds(
+    loadedSettings.fallbackProviderIds,
+    initialPrimaryProviderId
+  );
 
   settings = {
     ...DEFAULT_SETTINGS,
@@ -2401,6 +2589,10 @@ app.whenReady().then(async () => {
     quickActionId,
     promptTemplate: initialPromptTemplate,
     translateTargetLanguage: initialTranslateTargetLanguage,
+    primaryProviderId: initialPrimaryProviderId,
+    fallbackProviderIds: initialFallbackProviderIds,
+    providerModelOverrides: initialProviderModelOverrides,
+    webSearchEnabled: loadedSettings.webSearchEnabled ?? DEFAULT_SETTINGS.webSearchEnabled,
     shortcut,
     widgetPositions: loadedSettings.widgetPositions,
     resultWindowSize: migratedResultWindowSize
@@ -2412,6 +2604,10 @@ app.whenReady().then(async () => {
     loadedSettings.promptTemplate !== undefined && loadedSettings.promptTemplate !== initialPromptTemplate ||
     loadedSettings.translateTargetLanguage !== undefined && loadedSettings.translateTargetLanguage !== initialTranslateTargetLanguage ||
     loadedSettings.translateTargetLanguage === undefined ||
+    loadedSettings.primaryProviderId !== initialPrimaryProviderId ||
+    loadedSettings.fallbackProviderIds !== initialFallbackProviderIds ||
+    loadedSettings.providerModelOverrides !== initialProviderModelOverrides ||
+    loadedSettings.webSearchEnabled === undefined ||
     !loadedSettings.resultWindowSize ||
     loadedSettings.resultWindowSize.width < DEFAULT_SETTINGS.resultWindowSize.width ||
     loadedSettings.resultWindowSize.height < DEFAULT_SETTINGS.resultWindowSize.height

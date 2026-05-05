@@ -20,12 +20,12 @@ exports.default = async function beforeBuild() {
   const projectRoot = path.resolve(__dirname, '..');
   const outputPath = path.join(projectRoot, 'build', 'app-config.json');
   const localConfig = loadDeveloperConfig();
+  const backendBaseUrl =
+    process.env.CONTEXT_AI_BACKEND_URL ||
+    process.env.CONTEXT_AI_GATEWAY_URL ||
+    localConfig.backendBaseUrl ||
+    '';
   const bundledConfig = {
-    backendBaseUrl:
-      process.env.CONTEXT_AI_BACKEND_URL ||
-      process.env.CONTEXT_AI_GATEWAY_URL ||
-      localConfig.backendBaseUrl ||
-      'https://xerolas.ideepakchauhan7.workers.dev',
     updateGithubOwner:
       process.env.CONTEXT_AI_UPDATE_GITHUB_OWNER || localConfig.updateGithubOwner || 'ideepakchauhan7',
     updateGithubRepo:
@@ -39,6 +39,10 @@ exports.default = async function beforeBuild() {
       localConfig.defaultPromptTemplate ||
       'Answer the most useful question about this selected content. Focus on the main subject, solve or explain the visible content when possible, ignore browser or app chrome unless it matters, and keep the answer concise, grounded, and practical. Use plain text only.'
   };
+
+  if (backendBaseUrl) {
+    bundledConfig.backendBaseUrl = backendBaseUrl;
+  }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(bundledConfig, null, 2)}\n`, 'utf8');

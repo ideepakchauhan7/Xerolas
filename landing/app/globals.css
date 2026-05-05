@@ -4,7 +4,7 @@
   /* Fonts */
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), monospace;
-  --font-heading: var(--font-space-grotesk), var(--font-geist-sans), sans-serif;
+  --font-heading: var(--font-geist-sans), system-ui, sans-serif;
 
   /* Custom animations */
   --animate-shiny-text: shiny-text 8s infinite;

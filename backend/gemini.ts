@@ -13,6 +13,7 @@ interface AnalyzeImageInput {
   question?: string;
   imageMimeType: string;
   imageBase64Data: string;
+  enableWebSearch?: boolean;
 }
 
 interface GeminiPart {
@@ -427,40 +428,42 @@ async function openGeminiAnalysisStream(input: AnalyzeImageInput): Promise<Gemin
     {
       model: input.primaryModel,
       usedFallback: false,
-      useGrounding: true,
-      delayMs: 0
-    },
-    {
-      model: input.primaryModel,
-      usedFallback: false,
-      useGrounding: true,
-      delayMs: 700
-    }
-  ];
+    useGrounding: input.enableWebSearch ?? true,
+    delayMs: 0
+  },
+  {
+    model: input.primaryModel,
+    usedFallback: false,
+    useGrounding: input.enableWebSearch ?? true,
+    delayMs: 700
+  }
+];
 
   if (input.fallbackModel && input.fallbackModel !== input.primaryModel) {
     attempts.push({
       model: input.fallbackModel,
       usedFallback: true,
-      useGrounding: true,
+      useGrounding: input.enableWebSearch ?? true,
       delayMs: 0
     });
   }
 
-  attempts.push({
-    model: input.primaryModel,
-    usedFallback: false,
-    useGrounding: false,
-    delayMs: 400
-  });
-
-  if (input.fallbackModel && input.fallbackModel !== input.primaryModel) {
+  if (input.enableWebSearch ?? true) {
     attempts.push({
-      model: input.fallbackModel,
-      usedFallback: true,
+      model: input.primaryModel,
+      usedFallback: false,
       useGrounding: false,
-      delayMs: 0
+      delayMs: 400
     });
+
+    if (input.fallbackModel && input.fallbackModel !== input.primaryModel) {
+      attempts.push({
+        model: input.fallbackModel,
+        usedFallback: true,
+        useGrounding: false,
+        delayMs: 0
+      });
+    }
   }
 
   for (const attempt of attempts) {

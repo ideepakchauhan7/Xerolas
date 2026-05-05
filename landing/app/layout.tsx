@@ -1,20 +1,13 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-  weight: ["400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://xerolas.vercel.app"),
   title: "Xerolas — See Anything. Understand Everything.",
   description:
-    "Xerolas brings AI-powered screen intelligence to your entire desktop. Select any region from any app and get an instant answer without uploads, accounts, or API keys.",
+    "Xerolas brings AI-powered screen intelligence to your entire desktop. Select any region from any app and get an instant answer using your own AI provider key.",
   keywords: [
     "desktop AI assistant",
     "screen capture AI",
@@ -67,7 +60,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable} ${spaceGrotesk.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body className="antialiased">{children}</body>
     </html>

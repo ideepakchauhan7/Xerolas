@@ -66,7 +66,7 @@ export function Hero() {
             Xerolas brings AI-powered screen intelligence to your entire desktop.
             <br className="hidden sm:block" />
             <span className="text-neutral-500">
-              Select any region on your screen from any app, any window, anywhere, and get an instant answer without uploads, accounts, or API keys.
+              Select any region on your screen from any app, any window, anywhere, and get an instant answer with your own AI provider key.
             </span>
           </p>
         </BlurFade>
@@ -93,7 +93,7 @@ export function Hero() {
 
         <BlurFade delay={0.28} inView>
           <p className="mt-5 text-xs sm:text-sm text-neutral-500">
-            Free public downloads · No account required · Works on Windows, macOS & Linux
+            Free public downloads · BYOK provider setup · Works on Windows, macOS & Linux
           </p>
         </BlurFade>
 
@@ -103,7 +103,7 @@ export function Hero() {
               { value: "Any", unit: "", label: "app or window" },
               { value: "1", unit: "", label: "shortcut to capture" },
               { value: "3", unit: "", label: "desktop platforms" },
-              { value: "0", unit: "", label: "api keys needed" },
+              { value: "4", unit: "", label: "BYOK providers" },
             ].map((stat, i) => (
               <div key={i} className="flex flex-col items-center gap-0.5">
                 <div className="text-2xl font-bold text-white font-heading tracking-tight">

@@ -27,6 +27,65 @@
       </section>
 
       <form id="settings-form" class="settings-form settings-form--minimal">
+        <section class="settings-card settings-input-card settings-provider-card">
+          <span class="field-label">AI Provider</span>
+          <span class="field-helper">Use your own key. Xerolas stores saved keys with OS encryption and never returns them to this window.</span>
+
+          <label class="settings-field-row">
+            <span>Primary provider</span>
+            <select id="primary-provider" class="text-input">
+              <option value="anthropic">Anthropic</option>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Gemini</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </label>
+
+          <label class="settings-field-row">
+            <span>API key</span>
+            <input
+              id="provider-api-key"
+              class="text-input"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste a key to save or test"
+            />
+          </label>
+          <span id="provider-key-status" class="field-helper"></span>
+
+          <label class="settings-field-row">
+            <span>Model override</span>
+            <input
+              id="provider-model-override"
+              class="text-input"
+              type="text"
+              spellcheck="false"
+              placeholder="Use provider default"
+            />
+          </label>
+
+          <label class="settings-check-row">
+            <input id="web-search-enabled" type="checkbox" />
+            <span>Enable provider-native web search when supported. This can add latency or provider-side cost.</span>
+          </label>
+
+          <div class="settings-fallbacks">
+            <span class="field-label">Fallback providers</span>
+            <span class="field-helper">Only used for retryable capacity or network failures. Auth, billing, invalid key, and bad request errors do not fallback.</span>
+            <label><input type="checkbox" name="fallback-provider" value="anthropic" /> Anthropic</label>
+            <label><input type="checkbox" name="fallback-provider" value="openai" /> OpenAI</label>
+            <label><input type="checkbox" name="fallback-provider" value="gemini" /> Gemini</label>
+            <label><input type="checkbox" name="fallback-provider" value="openrouter" /> OpenRouter</label>
+          </div>
+
+          <div class="settings-actions settings-provider-actions">
+            <button id="save-provider-key" type="button" class="pill-button">Save key</button>
+            <button id="test-provider-key" type="button" class="pill-button pill-button--secondary">Test</button>
+            <button id="clear-provider-key" type="button" class="pill-button pill-button--secondary">Clear</button>
+          </div>
+        </section>
+
         <label class="settings-card settings-input-card">
           <span class="field-label">Translate target language</span>
           <input

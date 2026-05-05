@@ -92,8 +92,8 @@ const StatArbBackground = () => (
 const RiskBackground = () => (
   <div className="absolute inset-0 p-4 flex items-center justify-center opacity-25">
     <div className="text-center">
-      <div className="text-5xl font-bold font-mono text-emerald-400">0</div>
-      <div className="text-xs text-neutral-500 mt-1">API keys required</div>
+      <div className="text-5xl font-bold font-mono text-emerald-400">4</div>
+      <div className="text-xs text-neutral-500 mt-1">BYOK providers</div>
     </div>
   </div>
 );

@@ -8,7 +8,7 @@
 > See Anything. Understand Everything.
 
 **Subheadline:**
-> Xerolas brings AI-powered screen intelligence to your entire desktop. Select any region on your screen — from any app, any window, anywhere — and get instant AI analysis. No uploads. No API keys. Just install and go.
+> Xerolas brings AI-powered screen intelligence to your entire desktop. Select any region on your screen — from any app, any window, anywhere — and get instant AI analysis using your own AI provider key.
 
 **CTA Buttons:**
 > Download for Windows
@@ -16,7 +16,7 @@
 > Download for Linux
 
 **Under CTA (small text):**
-> Free and open source · No account required · Works on Windows, macOS & Linux
+> Free public downloads · BYOK provider setup · Works on Windows, macOS & Linux
 
 ---
 
@@ -45,7 +45,7 @@
 
 **Step 3:**
 > **Get your answer instantly**
-> Xerolas sends the captured region to Google Gemini AI and displays the result in a clean floating panel right on your desktop. Copy it, read it, dismiss it. Done.
+> Xerolas sends the captured region to your selected AI provider and displays the result in a clean floating panel right on your desktop. Copy it, read it, dismiss it. Done.
 
 ---
 
@@ -128,7 +128,7 @@
 | Works system-wide | ❌ | ✅ |
 | Global keyboard shortcut | ❌ | ✅ |
 | No upload required | ❌ | ✅ |
-| No API key needed | ✅ | ✅ |
+| User-chosen AI provider | ❌ | ✅ |
 | Windows support | ❌ | ✅ |
 | macOS support | ❌ | ✅ |
 | Linux support | ❌ | ✅ |
@@ -168,16 +168,16 @@
 > Frequently Asked Questions
 
 **Q: Is Xerolas really free?**
-> Yes, completely. Xerolas is free to download, free to use, and open source. There are no paid plans, no subscriptions, and no usage limits imposed by the app itself.
+> Xerolas is free to download and install. Your selected AI provider may apply its own usage limits or billing rules.
 
 **Q: Do I need an API key or account?**
-> No. You don't need a Google account, an Anthropic account, or any API key. Xerolas handles AI requests through its own backend so you never have to configure anything.
+> You need your own provider API key for public BYOK builds. Xerolas itself does not require a user account.
 
 **Q: Is my screen data private?**
 > Only the region you explicitly select is sent for analysis — nothing else. No background monitoring, no continuous capture, no data storage on any server. Captures are processed and immediately discarded.
 
 **Q: Which AI model does Xerolas use?**
-> Xerolas uses Google Gemini 1.5 Flash, a fast and accurate multimodal AI model capable of understanding images, text, code, charts, and more.
+> Xerolas supports user-selected cloud AI providers for screenshot understanding and answer generation.
 
 **Q: Does it work on all three platforms?**
 > Yes. Xerolas is built with Electron.js and fully supports Windows 10/11, macOS 12 and above, and major Linux distributions including Ubuntu and Fedora.
@@ -189,7 +189,7 @@
 > Yes. In the settings panel you can set a custom prompt that tells the AI exactly what to do with each capture — describe, extract text, explain code, translate, summarize, or anything else you need.
 
 **Q: Is the source code available?**
-> Yes. Xerolas is fully open source and hosted on GitHub. You can read the code, report issues, suggest features, or contribute directly.
+> The public source build is designed so provider keys are user-owned and not shipped with the app.
 
 ---
 
@@ -208,4 +208,4 @@
 > Download for Linux
 
 **Bottom line:**
-> Xerolas is open source and free forever · Built with Electron.js · Powered by Google Gemini
+> Xerolas is built with Electron.js · Desktop-wide AI screen intelligence with BYOK provider setup

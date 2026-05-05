@@ -1,10 +1,11 @@
 # Xerolas Realistic Hardening Guide
 
-Xerolas is an open-source Electron desktop app that talks to a Cloudflare Worker backend. That means the goal is not to make the client “impossible to reverse engineer.” The goal is to:
+Xerolas is an open-source Electron desktop app with a local BYOK provider model and an optional self-hosted Cloudflare Worker gateway. That means the goal is not to make the client “impossible to reverse engineer.” The goal is to:
 
 - raise the cost of casual tampering
-- keep provider secrets and sensitive policy server-side
-- make replay and abuse harder
+- avoid shipping Xerolas-owned provider secrets
+- keep user API keys encrypted locally when possible
+- make optional gateway replay and abuse harder
 - document honestly what is and is not protected
 
 ## Current threat model
@@ -14,15 +15,17 @@ The practical attacks against Xerolas are:
 1. Extracting packaged JavaScript from `app.asar`
 2. Running the packaged app with a debugger or inspector attached
 3. Patching packaged resources to alter behavior
-4. Replaying or scripting backend requests against the Cloudflare Worker
-5. Abusing public backend endpoints to consume Gemini capacity
+4. Extracting a user-owned API key from a compromised local account
+5. Replaying or scripting requests against an optional self-hosted gateway
+6. Abusing public gateway endpoints when a maintainer chooses to run one
 
 Because Xerolas is open source, a determined attacker can still inspect the client. The hardening model is therefore:
 
-- protect secrets by never shipping them
-- keep sensitive decisions on the backend
+- protect Xerolas-owned secrets by not shipping them
+- store user BYOK credentials outside normal settings with OS encryption
+- keep gateway abuse controls on the gateway when one is configured
 - use tamper checks and packaged hardening to raise client-side effort
-- use short-lived backend sessions plus replay protection to raise network-side effort
+- use short-lived gateway sessions plus replay protection to raise network-side effort for gateway deployments
 
 ## Protections Xerolas uses
 
@@ -68,18 +71,32 @@ That override is for internal debugging only and should never be used in product
 
 Packaged renderer windows disable DevTools and deny new window creation. This reduces the easy path for live UI inspection without affecting local development.
 
-### 5. HTTPS-only remote backend
+### 5. BYOK credential isolation
 
-The desktop app allows plain HTTP only for local development targets like `127.0.0.1` and `localhost`. Remote backends must use HTTPS.
+The default public app does not include a Xerolas-owned provider key. Users configure their own provider key in Settings.
 
-### 6. Server-signed backend sessions
+Current credential rules:
 
-The Cloudflare Worker now exposes:
+- saved keys are stored outside `settings.json`
+- Electron `safeStorage` is used when OS encryption is available
+- the renderer receives only redacted status such as provider, configured state, and last four characters
+- production builds refuse to persist keys if OS encryption is unavailable
+- plaintext key persistence is development-only behind `XEROLAS_ALLOW_PLAINTEXT_KEYS=1`
+
+This protects against accidental source leaks and packaged-key extraction. It does not protect a key from malware or a fully compromised user account.
+
+### 6. HTTPS-only remote gateway
+
+The desktop app allows plain HTTP only for local development targets like `127.0.0.1` and `localhost`. Remote self-hosted gateways must use HTTPS.
+
+### 7. Server-signed gateway sessions
+
+When a Cloudflare Worker gateway is configured, it exposes:
 
 - `POST /api/v1/session`
 - `POST /api/v1/analyze`
 
-The desktop client first obtains a short-lived server-signed session token. Each analyze request then sends:
+The desktop client first obtains a short-lived server-signed session token. Each gateway analyze request then sends:
 
 - session token
 - timestamp
@@ -87,7 +104,7 @@ The desktop client first obtains a short-lived server-signed session token. Each
 
 The Worker verifies the token and rejects stale timestamps.
 
-### 7. Replay protection with Durable Objects
+### 8. Replay protection with Durable Objects
 
 Replay protection is enforced server-side. Xerolas uses a Durable Object-backed nonce coordinator so a nonce can only be accepted once for a given session.
 
@@ -125,9 +142,9 @@ Cloudflare manages certificates and rotates them. Hard certificate pinning would
 
 ### “Move everything into a native addon”
 
-That only makes sense if the client itself is the trust boundary. Xerolas is designed so the backend is the trust boundary. Sensitive controls belong on the server:
+That only makes sense if the client itself is the trust boundary. Xerolas is designed so no Xerolas-owned provider secret lives in the client. If a self-hosted gateway is used, sensitive gateway controls belong on that gateway:
 
-- provider choice
+- provider secret storage
 - abuse controls
 - replay policy
 - token issuance
@@ -141,8 +158,9 @@ The current release hardening story is:
 - ASAR packaging
 - integrity verification
 - runtime anti-debug checks
-- HTTPS-only remote backend
-- signed backend sessions and replay protection
+- local BYOK key storage through OS encryption
+- HTTPS-only remote gateway when configured
+- signed gateway sessions and replay protection for optional Worker deployments
 
 Still pending for stronger production release posture:
 
@@ -157,16 +175,18 @@ Unsigned builds remain easier to tamper with and will still show platform trust 
 - Open source means the client can still be studied.
 - Obfuscation slows inspection; it does not prevent it.
 - Runtime anti-debug and VM checks are heuristic and bypassable.
-- Anyone can still write their own unofficial client against the public backend shape unless the backend adds stricter abuse controls.
-- Backend session tokens are short-lived bearer-style credentials, not user identity.
+- User-owned API keys are still sensitive local secrets; Xerolas cannot protect them from malware or a compromised OS account.
+- Anyone can still write their own unofficial client against a public gateway shape unless that gateway adds stricter abuse controls.
+- Gateway session tokens are short-lived bearer-style credentials, not user identity.
 
 ## Bottom line
 
 Xerolas protects what matters in the current product model:
 
-- secrets stay server-side
+- Xerolas-owned provider secrets are not shipped
+- user keys are stored outside normal settings with OS encryption when available
 - packaged tampering is detected
 - easy live inspection is reduced
-- replayed backend traffic is rejected
+- replayed gateway traffic is rejected when a gateway is used
 
-That is a realistic, maintainable hardening strategy for an open-source, install-and-use Electron app backed by Cloudflare Workers.
+That is a realistic, maintainable hardening strategy for an open-source, install-and-use Electron app with local BYOK providers and optional Cloudflare Workers.

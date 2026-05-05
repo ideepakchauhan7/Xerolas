@@ -6,6 +6,10 @@ import type {
   DesktopAssistantApi,
   HistoryViewModel,
   OverlayPayload,
+  AiProviderId,
+  ProviderKeySaveInput,
+  ProviderKeyTestInput,
+  ProviderKeyActionResult,
   QuickActionId,
   ResultStreamState,
   SaveSettingsInput,
@@ -73,7 +77,13 @@ const api: DesktopAssistantApi = {
   clearHistory: () => ipcRenderer.invoke('history:clear') as Promise<void>,
   getSettings: () => ipcRenderer.invoke('settings:get') as Promise<SettingsViewModel>,
   saveSettings: (patch: SaveSettingsInput) =>
-    ipcRenderer.invoke('settings:save', patch) as Promise<SaveSettingsResult>
+    ipcRenderer.invoke('settings:save', patch) as Promise<SaveSettingsResult>,
+  saveProviderKey: (input: ProviderKeySaveInput) =>
+    ipcRenderer.invoke('provider-key:save', input) as Promise<ProviderKeyActionResult>,
+  clearProviderKey: (provider: AiProviderId) =>
+    ipcRenderer.invoke('provider-key:clear', provider) as Promise<ProviderKeyActionResult>,
+  testProviderConnection: (input: ProviderKeyTestInput) =>
+    ipcRenderer.invoke('provider-key:test', input) as Promise<ProviderKeyActionResult>
 };
 
 contextBridge.exposeInMainWorld('desktopAssistant', api);

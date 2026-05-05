@@ -29,7 +29,7 @@ export function CTA() {
                 <span className="text-neutral-500">Then understand anything on your screen.</span>
               </h2>
               <p className="text-neutral-400 max-w-2xl mx-auto mb-10 text-lg leading-relaxed">
-                The public installers are live, the desktop app is ready for Windows, macOS, and Linux, and the whole flow works without sign-in or API-key setup.
+                The public installers are live, the desktop app is ready for Windows, macOS, and Linux, and setup stays local with your own AI provider key.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -55,7 +55,7 @@ export function CTA() {
               <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-xs text-neutral-600">
                 {[
                   "✓ Public download links",
-                  "✓ No account required",
+                  "✓ BYOK provider setup",
                   "✓ Windows, macOS, Linux builds",
                   "✓ Desktop-wide AI capture",
                 ].map((item, i) => (

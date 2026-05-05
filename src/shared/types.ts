@@ -59,6 +59,18 @@ export interface SourceLink {
   host: string;
 }
 
+export type AiProviderId = 'anthropic' | 'openai' | 'gemini' | 'openrouter';
+
+export interface ProviderCredentialStatus {
+  provider: AiProviderId;
+  configured: boolean;
+  last4: string | null;
+  storage: 'encrypted' | 'plaintext-dev' | 'unavailable';
+  message: string | null;
+}
+
+export type ProviderModelOverrides = Partial<Record<AiProviderId, string>>;
+
 export interface AnalysisResult {
   id: string;
   createdAt: string;
@@ -106,6 +118,10 @@ export interface AppSettings {
   quickActionId: QuickActionId;
   promptTemplate: string;
   translateTargetLanguage: string;
+  primaryProviderId: AiProviderId;
+  fallbackProviderIds: AiProviderId[];
+  providerModelOverrides: ProviderModelOverrides;
+  webSearchEnabled: boolean;
   shortcut: string;
   widgetPositions: WidgetPositionMap;
   resultWindowSize: Size;
@@ -127,6 +143,7 @@ export interface SettingsViewModel {
   shortcutRegistered: boolean;
   backendConfigured: boolean;
   backendBaseUrl: string | null;
+  credentialStatuses: ProviderCredentialStatus[];
 }
 
 export interface SaveSettingsResult {
@@ -136,14 +153,37 @@ export interface SaveSettingsResult {
   shortcutRegistered: boolean;
   backendConfigured: boolean;
   backendBaseUrl: string | null;
+  credentialStatuses: ProviderCredentialStatus[];
 }
 
 export interface SaveSettingsInput {
   quickActionId?: QuickActionId;
   promptTemplate?: string;
   translateTargetLanguage?: string;
+  primaryProviderId?: AiProviderId;
+  fallbackProviderIds?: AiProviderId[];
+  providerModelOverrides?: ProviderModelOverrides;
+  webSearchEnabled?: boolean;
   shortcut?: string;
   widgetPositions?: WidgetPositionMap;
+}
+
+export interface ProviderKeySaveInput {
+  provider: AiProviderId;
+  apiKey: string;
+}
+
+export interface ProviderKeyTestInput {
+  provider: AiProviderId;
+  apiKey?: string;
+  modelOverride?: string;
+  webSearchEnabled?: boolean;
+}
+
+export interface ProviderKeyActionResult {
+  success: boolean;
+  message: string;
+  credentialStatuses: ProviderCredentialStatus[];
 }
 
 export interface DesktopAssistantApi {
@@ -180,9 +220,69 @@ export interface DesktopAssistantApi {
   clearHistory: () => Promise<void>;
   getSettings: () => Promise<SettingsViewModel>;
   saveSettings: (patch: SaveSettingsInput) => Promise<SaveSettingsResult>;
+  saveProviderKey: (input: ProviderKeySaveInput) => Promise<ProviderKeyActionResult>;
+  clearProviderKey: (provider: AiProviderId) => Promise<ProviderKeyActionResult>;
+  testProviderConnection: (input: ProviderKeyTestInput) => Promise<ProviderKeyActionResult>;
 }
 
 export const DEFAULT_TRANSLATE_TARGET_LANGUAGE = 'English';
+export const AI_PROVIDER_IDS: AiProviderId[] = ['anthropic', 'openai', 'gemini', 'openrouter'];
+
+export const DEFAULT_PROVIDER_MODELS: Record<AiProviderId, string> = {
+  anthropic: 'claude-sonnet-4-5',
+  openai: 'gpt-4.1-mini',
+  gemini: 'gemini-2.5-flash',
+  openrouter: 'openrouter/free'
+};
+
+export function isAiProviderId(value: unknown): value is AiProviderId {
+  return value === 'anthropic' || value === 'openai' || value === 'gemini' || value === 'openrouter';
+}
+
+export function getAiProviderLabel(provider: AiProviderId): string {
+  switch (provider) {
+    case 'anthropic':
+      return 'Anthropic';
+    case 'openai':
+      return 'OpenAI';
+    case 'gemini':
+      return 'Gemini';
+    case 'openrouter':
+      return 'OpenRouter';
+  }
+}
+
+export function normalizeProviderModelOverrides(value: ProviderModelOverrides | null | undefined): ProviderModelOverrides {
+  const overrides: ProviderModelOverrides = {};
+
+  AI_PROVIDER_IDS.forEach((provider) => {
+    const model = value?.[provider]?.trim();
+    if (model) {
+      overrides[provider] = model;
+    }
+  });
+
+  return overrides;
+}
+
+export function normalizeFallbackProviderIds(
+  value: AiProviderId[] | null | undefined,
+  primaryProviderId: AiProviderId
+): AiProviderId[] {
+  const seen = new Set<AiProviderId>();
+  const fallbackIds: AiProviderId[] = [];
+
+  (Array.isArray(value) ? value : []).forEach((provider) => {
+    if (!isAiProviderId(provider) || provider === primaryProviderId || seen.has(provider)) {
+      return;
+    }
+
+    seen.add(provider);
+    fallbackIds.push(provider);
+  });
+
+  return fallbackIds;
+}
 
 export function normalizeTranslateTargetLanguage(value: string | null | undefined): string {
   const normalizedValue = value?.trim();
@@ -296,6 +396,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   quickActionId: DEFAULT_QUICK_ACTION_ID,
   promptTemplate: DEFAULT_PROMPT_TEMPLATE,
   translateTargetLanguage: DEFAULT_TRANSLATE_TARGET_LANGUAGE,
+  primaryProviderId: 'gemini',
+  fallbackProviderIds: [],
+  providerModelOverrides: {},
+  webSearchEnabled: false,
   shortcut: DEFAULT_SHORTCUT,
   widgetPositions: {},
   resultWindowSize: {

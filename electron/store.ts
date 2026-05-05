@@ -2,11 +2,17 @@ import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  type AiProviderId,
+  AI_PROVIDER_IDS,
   type AppSettings,
   HISTORY_LIMIT,
+  isAiProviderId,
+  normalizeFallbackProviderIds,
+  normalizeProviderModelOverrides,
   normalizeTranslateTargetLanguage,
   type HistoryEntry,
   type Point,
+  type ProviderModelOverrides,
   type QuickActionId,
   type Size,
   type SourceLink,
@@ -17,6 +23,10 @@ export interface LoadedSettings {
   quickActionId?: QuickActionId;
   promptTemplate?: string;
   translateTargetLanguage?: string;
+  primaryProviderId?: AiProviderId;
+  fallbackProviderIds?: AiProviderId[];
+  providerModelOverrides?: ProviderModelOverrides;
+  webSearchEnabled?: boolean;
   shortcut?: string;
   widgetPositions: WidgetPositionMap;
   resultWindowSize?: Size;
@@ -83,6 +93,34 @@ function sanitizeWidgetPositions(value: unknown): WidgetPositionMap {
   return Object.fromEntries(entries);
 }
 
+function sanitizeFallbackProviderIds(value: unknown, primaryProviderId: AiProviderId): AiProviderId[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return normalizeFallbackProviderIds(
+    value.filter((entry): entry is AiProviderId => isAiProviderId(entry)),
+    primaryProviderId
+  );
+}
+
+function sanitizeProviderModelOverrides(value: unknown): ProviderModelOverrides | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const raw = value as Record<string, unknown>;
+  const overrides: ProviderModelOverrides = {};
+  AI_PROVIDER_IDS.forEach((provider) => {
+    const model = typeof raw[provider] === 'string' ? raw[provider].trim() : '';
+    if (model) {
+      overrides[provider] = model;
+    }
+  });
+
+  return normalizeProviderModelOverrides(overrides);
+}
+
 function sanitizeQuickActionId(value: unknown): QuickActionId | undefined {
   if (
     value === 'describe' ||
@@ -105,6 +143,7 @@ function sanitizeSettings(value: unknown): LoadedSettings {
   }
 
   const raw = value as Record<string, unknown>;
+  const primaryProviderId = isAiProviderId(raw.primaryProviderId) ? raw.primaryProviderId : undefined;
   return {
     quickActionId: sanitizeQuickActionId(raw.quickActionId),
     promptTemplate:
@@ -115,6 +154,12 @@ function sanitizeSettings(value: unknown): LoadedSettings {
       typeof raw.translateTargetLanguage === 'string'
         ? normalizeTranslateTargetLanguage(raw.translateTargetLanguage)
         : undefined,
+    primaryProviderId,
+    fallbackProviderIds: primaryProviderId
+      ? sanitizeFallbackProviderIds(raw.fallbackProviderIds, primaryProviderId)
+      : undefined,
+    providerModelOverrides: sanitizeProviderModelOverrides(raw.providerModelOverrides),
+    webSearchEnabled: typeof raw.webSearchEnabled === 'boolean' ? raw.webSearchEnabled : undefined,
     shortcut:
       typeof raw.shortcut === 'string' && raw.shortcut.trim()
         ? raw.shortcut.trim()

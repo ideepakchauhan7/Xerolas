@@ -9,7 +9,7 @@ const COMPARISON = [
   { name: "Works system-wide", lens: "No", xerolas: "Yes" },
   { name: "Global keyboard shortcut", lens: "No", xerolas: "Yes" },
   { name: "No upload required", lens: "No", xerolas: "Yes" },
-  { name: "No API key needed", lens: "Yes", xerolas: "Yes" },
+  { name: "User-chosen AI provider", lens: "No", xerolas: "Yes" },
   { name: "Windows support", lens: "No", xerolas: "Yes" },
   { name: "macOS support", lens: "No", xerolas: "Yes" },
   { name: "Linux support", lens: "No", xerolas: "Yes" },

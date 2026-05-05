@@ -1,12 +1,19 @@
 # Xerolas
 
-Xerolas is a cross-platform Electron desktop assistant that works like Google Lens for your whole operating system. It captures any screen region inline, sends that image to a Cloudflare Worker backend, and shows the Gemini result beside the selection.
+Xerolas is a cross-platform Electron desktop assistant that works like an AI lens for your whole operating system. It captures any screen region inline, sends that image to the AI provider you configure, and shows the answer beside the selection.
 
-The public release setup is fully free:
+The open-source safety model is BYOK by default:
 
-- private source repo
+- users add their own Anthropic, OpenAI, Gemini, or OpenRouter key in Settings
+- provider keys are stored outside `settings.json` using Electron OS encryption
+- the renderer only sees redacted key status, never the saved key
+- screenshots are sent only to the selected provider or an explicitly configured self-hosted gateway
+- no Xerolas-owned provider key is committed, packaged, or required for public source builds
+
+The public release setup remains free:
+
+- source can be public without shipping maintainer-owned API keys
 - separate public GitHub Releases repo for downloads
-- free Cloudflare Worker backend
 - free Vercel landing page on a `*.vercel.app` subdomain
 - no paid services
 - no custom domain
@@ -14,10 +21,9 @@ The public release setup is fully free:
 
 ## Public release defaults
 
-- Source repo: private `ideepakchauhan7/Xerolas`
+- Source repo: `ideepakchauhan7/Xerolas`
 - Public downloads repo: `ideepakchauhan7/Xerolas-downloads`
 - Public downloads URL: `https://github.com/ideepakchauhan7/Xerolas-downloads/releases`
-- Cloudflare Worker URL: `https://xerolas.ideepakchauhan7.workers.dev`
 - Vercel landing page: default `*.vercel.app` domain only
 
 ## Packaging and updates
@@ -26,13 +32,27 @@ The packaged desktop app should ship with:
 
 - `updateGithubOwner = ideepakchauhan7`
 - `updateGithubRepo = Xerolas-downloads`
-- `backendBaseUrl = https://xerolas.ideepakchauhan7.workers.dev`
+- no default `backendBaseUrl`; users configure a provider key locally
 
 Installers and updater metadata are published through the public downloads repo releases at `https://github.com/ideepakchauhan7/Xerolas-downloads/releases`.
 
+## Local AI provider setup
+
+Fresh public builds do not call a hosted Xerolas backend. Open Settings and configure:
+
+- Primary provider: Anthropic, OpenAI, Gemini, or OpenRouter.
+- API key: saved with Electron `safeStorage` when OS encryption is available.
+- Optional model override: leave blank to use the built-in provider default.
+- Optional fallback providers: used only for retryable capacity/network failures.
+- Web search: off by default; enable only if you accept provider-side latency or cost.
+
+Fallbacks are explicit and conservative. Xerolas does not fallback on invalid keys, auth failures, billing errors, or bad-request/model errors because those usually need user action.
+
+If OS encryption is unavailable in a production build, Xerolas refuses to persist API keys. Development plaintext storage is available only with `XEROLAS_ALLOW_PLAINTEXT_KEYS=1`.
+
 ## Feedback loop
 
-Public feedback should go through the downloads repo so users do not need access to the private source repository:
+Public feedback should go through the downloads repo so release users have one obvious place to report product issues:
 
 - Report issues: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=bug_report.yml`
 - Request features: `https://github.com/ideepakchauhan7/Xerolas-downloads/issues/new?template=feature_request.yml`
@@ -48,9 +68,9 @@ Track the launch loop without hidden telemetry:
 
 Do not add silent desktop telemetry without an explicit opt-in design and privacy copy.
 
-## Free-stack deployment
+## Optional self-hosted gateway
 
-### Cloudflare Worker
+The Cloudflare Worker backend is still available for users who want a self-hosted gateway instead of direct local BYOK provider calls. Configure `backendBaseUrl` through `build/app-config.json`, `config/app-config.local.json`, or `CONTEXT_AI_BACKEND_URL`.
 
 Required secrets:
 
@@ -85,11 +105,11 @@ Deploy:
 npm run deploy:worker
 ```
 
-### Vercel
+## Vercel
 
 Deploy the static `landing/` site to a free Vercel project and use the Vercel-provided subdomain. Do not configure a custom domain.
 
-### GitHub Releases
+## GitHub Releases
 
 Tag a source release such as `v0.1.10` in the private repo and let the release workflow build and upload the artifacts into the separate public downloads repo. The workflow requires a `DOWNLOADS_REPO_TOKEN` secret with `contents: write` access to the downloads repo.
 

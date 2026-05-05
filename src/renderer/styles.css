@@ -1134,6 +1134,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .settings-form--minimal {
@@ -1175,6 +1177,56 @@ button {
   border-color: rgba(167, 139, 250, 0.32);
   box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12);
   background: rgba(8, 8, 8, 0.4);
+}
+
+.settings-provider-card {
+  gap: 12px;
+}
+
+.settings-field-row {
+  display: grid;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.settings-field-row select.text-input {
+  appearance: none;
+}
+
+.settings-check-row,
+.settings-fallbacks label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-check-row input,
+.settings-fallbacks input {
+  accent-color: rgba(167, 139, 250, 0.9);
+}
+
+.settings-fallbacks {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.settings-provider-actions {
+  margin-top: 0;
+  justify-content: flex-start;
+  padding: 10px;
+  background: rgba(8, 8, 8, 0.18);
+}
+
+.pill-button--secondary {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .settings-actions {
