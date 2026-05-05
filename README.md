@@ -1,103 +1,138 @@
+<div align="center">
+
 # Xerolas
 
-Xerolas is a cross-platform Electron desktop assistant that works like an AI lens for your whole operating system. It captures any screen region inline, sends that image to the AI provider you configure, and shows the answer beside the selection.
+### See anything. Understand everything.
 
-The open-source safety model is BYOK by default:
+Desktop-wide AI screen intelligence for Windows, macOS, and Linux.
 
-- users add their own Anthropic, OpenAI, Gemini, or OpenRouter key in Settings
-- provider keys are stored outside `settings.json` using Electron OS encryption
-- the renderer only sees redacted key status, never the saved key
-- screenshots are sent only to the selected provider
-- no Xerolas-owned provider key is committed, packaged, or required for public source builds
+[Website](https://xerolas.vercel.app) · [Download](https://github.com/ideepakchauhan7/Xerolas/releases) · [Report issue](https://github.com/ideepakchauhan7/Xerolas/issues/new?template=bug_report.yml) · [Request feature](https://github.com/ideepakchauhan7/Xerolas/issues/new?template=feature_request.yml) · [License](./LICENSE)
 
-The public release setup remains free:
+![Xerolas demo](./docs/assets/xerolas-demo.gif)
 
-- public source repo without shipping maintainer-owned API keys
-- GitHub Releases in the main `Xerolas` repo for downloads and updater metadata
-- public landing page at `https://xerolas.vercel.app`
-- no paid distribution infrastructure
-- no custom domain
-- no license flow
+</div>
 
-## Public release defaults
+## What Is Xerolas?
 
-- Public source and releases repo: `ideepakchauhan7/Xerolas`
-- Public downloads URL: `https://github.com/ideepakchauhan7/Xerolas/releases`
-- Public site: `https://xerolas.vercel.app`
+Xerolas is an open-source Electron desktop app that works like an AI lens for your whole operating system. Press the hotkey, drag over any screen region, and get an answer in a floating result panel beside the capture.
 
-## Packaging and updates
+It is built for the moments where copying text is awkward, switching to a browser breaks flow, or the thing you need help with is already visible on your screen.
 
-The packaged desktop app should ship with:
+## Features
 
-- `updateGithubOwner = ideepakchauhan7`
-- `updateGithubRepo = Xerolas`
-- no bundled provider key; users configure their own provider key locally
+- Capture any screen region from any app with a global hotkey.
+- Get AI overview answers beside the selected capture.
+- Extract text from screenshots, documents, UI, and images.
+- Explain code snippets, errors, stack traces, and technical screens.
+- Translate captured text into your saved target language.
+- Summarize dense pages, PDFs, docs, notes, and articles.
+- Ask follow-up questions about the current capture without taking another screenshot.
+- Optionally enable provider-native web search for answers that need current context and source links.
 
-Installers and updater metadata are published through the main public repo releases at `https://github.com/ideepakchauhan7/Xerolas/releases`.
+## Download
 
-## Local AI provider setup
+Installers and update metadata are published through GitHub Releases:
 
-Fresh public builds do not call a hosted Xerolas backend. Open Settings and configure:
+https://github.com/ideepakchauhan7/Xerolas/releases
 
-- Primary provider: Anthropic, OpenAI, Gemini, or OpenRouter.
-- API key: saved with Electron `safeStorage` when OS encryption is available.
-- Optional model override: leave blank to use the built-in provider default.
-- Optional fallback providers: used only for retryable capacity/network failures.
-- Web search: off by default; enable only if you accept provider-side latency or cost.
+Recommended public install paths:
 
-Fallbacks are explicit and conservative. Xerolas does not fallback on invalid keys, auth failures, billing errors, or bad-request/model errors because those usually need user action.
+- Windows: download the `.exe` installer.
+- macOS: download the `.dmg`.
+- Ubuntu/Linux: use the Snap/App Center build when available.
+- Linux manual installs: use `.AppImage` for portable use or `.deb` if you specifically need Debian packaging.
+
+The public site is available at:
+
+https://xerolas.vercel.app
+
+## Bring Your Own Key
+
+Xerolas is BYOK by default. The public build does not include a Xerolas-owned provider key and does not call a hosted Xerolas backend.
+
+Supported providers:
+
+- Anthropic
+- OpenAI
+- Gemini
+- OpenRouter
+
+Open Settings in the app, choose a provider, and save your API key. Keys are stored outside normal settings using Electron OS encryption when available. The renderer only receives redacted key status, never the full saved key.
+
+Optional settings:
+
+- Model override for advanced users.
+- Explicit fallback providers for retryable capacity or network failures.
+- Web search toggle for provider-native search when supported.
+- Translate target language.
+- Global capture hotkey.
+
+## Privacy And Security
+
+- Screenshots are sent only to the AI provider you select.
+- No Xerolas-owned AI key is committed, packaged, or required.
+- Provider keys are never returned to the renderer after saving.
+- Invalid keys, billing errors, auth failures, and bad requests do not silently fallback to another provider.
+- Xerolas does not add silent desktop telemetry. Feedback is handled through GitHub issues.
 
 If OS encryption is unavailable in a production build, Xerolas refuses to persist API keys. Development plaintext storage is available only with `XEROLAS_ALLOW_PLAINTEXT_KEYS=1`.
 
-## Feedback loop
+## Development
 
-Public feedback should go through the main repo so users have one obvious place to report product issues:
+Requirements:
 
-- Report issues: `https://github.com/ideepakchauhan7/Xerolas/issues/new?template=bug_report.yml`
-- Request features: `https://github.com/ideepakchauhan7/Xerolas/issues/new?template=feature_request.yml`
-- Share uninstall feedback: `https://github.com/ideepakchauhan7/Xerolas/issues/new?template=uninstall_feedback.yml`
+- Node.js 20+
+- npm
 
-Track the launch loop without hidden telemetry:
-
-- Downloads: GitHub release asset download counts, plus Snap Store channel data.
-- Update checks: downloads of `latest.yml`, `latest-mac.yml`, and `latest-linux.yml`.
-- Daily captures: only user-volunteered workflow frequency in issues or interviews.
-- Failed captures: issue reports tagged `bug` / `user-feedback`, including OS, version, install type, and error message.
-- Uninstall complaints: issue reports tagged `uninstall-feedback`.
-
-Do not add silent desktop telemetry without an explicit opt-in design and privacy copy.
-
-## Contributing
-
-The public repo is intentionally focused on the desktop app. There is no hosted Xerolas backend, no maintainer-owned AI key, and no hidden release infrastructure required to work on the code.
-
-Contributor setup:
+Install dependencies:
 
 ```bash
 npm install
-npm run typecheck
-npm run build
 ```
 
-Run locally:
+Run the desktop app in development:
 
 ```bash
 npm run dev
 ```
 
-Then open Settings in the app and add your own provider key. Keep real keys out of commits, screenshots, logs, and issue reports.
+Typecheck:
 
-## GitHub Releases
+```bash
+npm run typecheck
+```
 
-Tag a source release such as `v0.1.30` in the public repo and let the release workflow build and upload the artifacts into the same repo's GitHub Release.
+Build:
+
+```bash
+npm run build
+```
+
+The repository is intentionally focused on the desktop app. The landing page is managed separately as a local-only ignored folder, and the public app uses local BYOK provider routing instead of a hosted backend.
+
+## Releases
+
+Create a version tag such as `v0.1.30` and let the GitHub release workflow build the public artifacts:
 
 - Windows `.exe`
 - macOS `.dmg`
-- Linux `.snap` for Snap Store / Ubuntu App Center distribution, recommended for Ubuntu users
-- Linux `.AppImage` as a manual portable package
-- Linux `.deb` as a manual package for users who specifically need Debian packaging
-- updater metadata used by `electron-updater`
+- Linux `.snap`
+- Linux `.AppImage`
+- Linux `.deb`
+- updater metadata for `electron-updater`
+
+The packaged app is configured to read update metadata from the main public `ideepakchauhan7/Xerolas` release feed.
+
+## Contributing And Feedback
+
+Useful feedback is very welcome:
+
+- [Report a bug](https://github.com/ideepakchauhan7/Xerolas/issues/new?template=bug_report.yml)
+- [Request a feature](https://github.com/ideepakchauhan7/Xerolas/issues/new?template=feature_request.yml)
+- [Share uninstall feedback](https://github.com/ideepakchauhan7/Xerolas/issues/new?template=uninstall_feedback.yml)
+
+When reporting capture or provider issues, include your OS, Xerolas version, install type, selected provider, and the exact error message. Do not include API keys or private screenshots.
 
 ## License
 
-Xerolas is released under the MIT License.
+Xerolas is released under the [MIT License](./LICENSE).
