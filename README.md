@@ -14,7 +14,7 @@ The public release setup remains free:
 
 - public source repo without shipping maintainer-owned API keys
 - GitHub Releases in the main `Xerolas` repo for downloads and updater metadata
-- free Vercel landing page on a `*.vercel.app` subdomain
+- public landing page at `https://xerolas.vercel.app`
 - no paid services
 - no custom domain
 - no license flow
@@ -23,7 +23,7 @@ The public release setup remains free:
 
 - Public source and releases repo: `ideepakchauhan7/Xerolas`
 - Public downloads URL: `https://github.com/ideepakchauhan7/Xerolas/releases`
-- Vercel landing page: default `*.vercel.app` domain only
+- Public site: `https://xerolas.vercel.app`
 
 ## Packaging and updates
 
@@ -103,10 +103,6 @@ Deploy:
 ```bash
 npm run deploy:worker
 ```
-
-## Vercel
-
-Deploy the static `landing/` site to a free Vercel project and use the Vercel-provided subdomain. Do not configure a custom domain.
 
 ## GitHub Releases
 

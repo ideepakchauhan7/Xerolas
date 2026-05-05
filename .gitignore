@@ -1,4 +1,5 @@
 node_modules
+landing
 dist
 dist-backend
 dist-electron
@@ -16,6 +17,12 @@ backend/config/server.local.json
 .dev.vars
 .dev.vars.*
 .vercel
+.vercelignore
+vercel.json
 
 .next
 Capacity - Turn that idea you had in mind into a website_files/
+
+*.md
+!README.md
+Xerolas.gif
