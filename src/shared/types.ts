@@ -141,8 +141,6 @@ export interface AppRuntimeState {
 export interface SettingsViewModel {
   settings: AppSettings;
   shortcutRegistered: boolean;
-  backendConfigured: boolean;
-  backendBaseUrl: string | null;
   credentialStatuses: ProviderCredentialStatus[];
 }
 
@@ -151,8 +149,6 @@ export interface SaveSettingsResult {
   message: string;
   settings: AppSettings;
   shortcutRegistered: boolean;
-  backendConfigured: boolean;
-  backendBaseUrl: string | null;
   credentialStatuses: ProviderCredentialStatus[];
 }
 

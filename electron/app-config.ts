@@ -4,7 +4,6 @@ import path from 'node:path';
 import { type QuickActionId } from '../src/shared/types';
 
 export interface AppConfig {
-  backendBaseUrl?: string;
   updateGithubOwner?: string;
   updateGithubRepo?: string;
   defaultQuickActionId?: QuickActionId;
@@ -33,18 +32,6 @@ function sanitizeAppConfig(value: unknown): AppConfig | null {
   }
 
   const raw = value as Record<string, unknown>;
-  const backendBaseUrl =
-    typeof raw.backendBaseUrl === 'string' ? raw.backendBaseUrl.trim().replace(/\/+$/, '') : '';
-
-  if (
-    backendBaseUrl &&
-    !backendBaseUrl.startsWith('https://') &&
-    !backendBaseUrl.startsWith('http://localhost') &&
-    !backendBaseUrl.startsWith('http://127.0.0.1')
-  ) {
-    return null;
-  }
-
   const updateGithubOwner =
     typeof raw.updateGithubOwner === 'string' && raw.updateGithubOwner.trim()
       ? raw.updateGithubOwner.trim()
@@ -59,7 +46,6 @@ function sanitizeAppConfig(value: unknown): AppConfig | null {
       : undefined;
 
   return {
-    backendBaseUrl: backendBaseUrl || undefined,
     updateGithubOwner,
     updateGithubRepo,
     defaultQuickActionId: sanitizeQuickActionId(raw.defaultQuickActionId),
@@ -82,7 +68,6 @@ function readConfigFile(filePath: string): AppConfig | null {
 
 export function loadAppConfig(): AppConfig | null {
   const envConfig = sanitizeAppConfig({
-    backendBaseUrl: process.env.CONTEXT_AI_BACKEND_URL ?? process.env.CONTEXT_AI_GATEWAY_URL,
     updateGithubOwner: process.env.CONTEXT_AI_UPDATE_GITHUB_OWNER,
     updateGithubRepo: process.env.CONTEXT_AI_UPDATE_GITHUB_REPO,
     defaultQuickActionId: process.env.CONTEXT_AI_DEFAULT_QUICK_ACTION_ID,

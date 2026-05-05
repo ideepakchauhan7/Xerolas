@@ -48,12 +48,6 @@ import {
   type Size,
   type SettingsViewModel
 } from '../src/shared/types';
-import {
-  type BackendSession,
-  GatewayRequestError,
-  requestSession,
-  streamAnalyzeImage
-} from './backend-client';
 import { loadAppConfig } from './app-config';
 import { assertRuntimeSecurity, verifyPackagedIntegrity } from './runtime-security';
 import {
@@ -149,12 +143,9 @@ let overlayPayload: OverlayPayload | null = null;
 let shortcutRegistered = false;
 let captureInProgress = false;
 let lastError: string | null = null;
-let backendBaseUrl = '';
 let updateGithubOwner = '';
 let updateGithubRepo = '';
 let appManagedDefaults: Partial<Pick<AppSettings, 'quickActionId' | 'promptTemplate'>> = {};
-let backendSession: BackendSession | null = null;
-let backendSessionRequest: Promise<BackendSession> | null = null;
 let activeCaptureSessionId: number | null = null;
 let captureSessionQuickActionId: QuickActionId | null = null;
 let nextCaptureSessionId = 0;
@@ -171,7 +162,6 @@ let resultOverflowEnabled = false;
 let settingResultWindowBounds = false;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let updateCheckInFlight = false;
-const SESSION_REFRESH_BUFFER_MS = 60_000;
 const MAX_ANALYSIS_CACHE_ENTRIES = 24;
 
 function toRect(input: Electron.Rectangle): Rect {
@@ -424,7 +414,7 @@ function refreshTrayMenu(): void {
 function buildRuntimeState(): AppRuntimeState {
   return {
     captureInProgress,
-    captureReady: !getBackendConfigurationIssue(),
+    captureReady: !getAnalysisConfigurationIssue(),
     accessMessage: getAccessMessage(),
     resultVisible: Boolean(appWindows.result?.isVisible()),
     hasResult: Boolean(latestAnalysis || currentResultStream || (askQuestionComposerOpen && getReusableCaptureContext())),
@@ -729,47 +719,8 @@ function showCaptureFailure(error: unknown): void {
   dialog.showErrorBox('Xerolas Capture Failed', getErrorMessage(error));
 }
 
-function isLocalDevelopmentBackend(baseUrl: string): boolean {
-  try {
-    const parsedUrl = new URL(baseUrl);
-    return (
-      parsedUrl.protocol === 'http:' &&
-      ['127.0.0.1', 'localhost', '::1'].includes(parsedUrl.hostname.toLowerCase())
-    );
-  } catch {
-    return false;
-  }
-}
-
-function getBackendConfigurationIssue(): string | null {
-  if (!backendBaseUrl) {
-    return 'No self-hosted backend gateway URL is configured.';
-  }
-
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(backendBaseUrl);
-  } catch {
-    return 'The configured backend gateway URL is invalid.';
-  }
-
-  if (isLocalDevelopmentBackend(backendBaseUrl)) {
-    return null;
-  }
-
-  if (parsedUrl.protocol !== 'https:') {
-    return 'Remote backend communication requires HTTPS.';
-  }
-
-  return null;
-}
-
 function hasPrimaryProviderKey(): boolean {
   return Boolean(readProviderApiKey(settings.primaryProviderId));
-}
-
-function shouldUseGatewayAnalysis(): boolean {
-  return !hasPrimaryProviderKey() && Boolean(backendBaseUrl);
 }
 
 function getAnalysisConfigurationIssue(): string | null {
@@ -777,55 +728,7 @@ function getAnalysisConfigurationIssue(): string | null {
     return null;
   }
 
-  if (backendBaseUrl) {
-    return getBackendConfigurationIssue();
-  }
-
   return `Add a ${getAiProviderLabel(settings.primaryProviderId)} API key in Settings before capturing.`;
-}
-
-function isBackendSessionFresh(session: BackendSession | null, nowMs = Date.now()): boolean {
-  return Boolean(session && session.expiresAtMs - nowMs > SESSION_REFRESH_BUFFER_MS);
-}
-
-async function fetchBackendSession(forceRefresh = false): Promise<BackendSession> {
-  if (!forceRefresh && isBackendSessionFresh(backendSession)) {
-    return backendSession as BackendSession;
-  }
-
-  if (backendSessionRequest) {
-    return backendSessionRequest;
-  }
-
-  backendSessionRequest = requestSession({
-    backendBaseUrl,
-    appVersion: app.getVersion(),
-    platform: process.platform
-  })
-    .then((session) => {
-      backendSession = session;
-      return session;
-    })
-    .finally(() => {
-      backendSessionRequest = null;
-    });
-
-  return backendSessionRequest;
-}
-
-async function warmBackendSession(): Promise<void> {
-  if (!shouldUseGatewayAnalysis() || getBackendConfigurationIssue()) {
-    return;
-  }
-
-  try {
-    await fetchBackendSession();
-  } catch (error) {
-    console.warn(
-      'Backend session bootstrap failed:',
-      error instanceof Error ? error.message : String(error)
-    );
-  }
 }
 
 function getAccessMessage(): string {
@@ -841,8 +744,6 @@ function buildSettingsViewModel(): SettingsViewModel {
   return {
     settings,
     shortcutRegistered,
-    backendConfigured: !getAnalysisConfigurationIssue(),
-    backendBaseUrl: backendBaseUrl || null,
     credentialStatuses: getProviderCredentialStatuses()
   };
 }
@@ -1399,7 +1300,7 @@ function hideSettingsWindow(): void {
 }
 
 function hasCaptureAccess(): boolean {
-  return !getBackendConfigurationIssue();
+  return !getAnalysisConfigurationIssue();
 }
 
 function ensureMacScreenPermission(): void {
@@ -1764,8 +1665,6 @@ async function analyzeExistingImage(
   };
   resultWindowAutoResizeEnabled = true;
   pushResultStreamState(initialStreamState);
-  const useGateway = shouldUseGatewayAnalysis();
-  const sessionPromise = useGateway ? fetchBackendSession() : Promise.resolve(null);
   await showResultWindow({
     reposition: options.repositionResult,
     selection,
@@ -1773,8 +1672,7 @@ async function analyzeExistingImage(
     clearStream: false
   });
 
-  let session = await sessionPromise;
-  markCapturePerf('backend-request-start', {
+  markCapturePerf('analysis-request-start', {
     quickActionId,
     bytes: imageBytes.byteLength,
     question: trimmedQuestion ?? null
@@ -1786,7 +1684,7 @@ async function analyzeExistingImage(
         return;
       }
 
-      markCapturePerf('backend-stream-meta', {
+      markCapturePerf('analysis-stream-meta', {
         model,
         usedFallback
       });
@@ -1839,22 +1737,6 @@ async function analyzeExistingImage(
     }
   };
 
-  const startGatewayStream = async (activeSession: BackendSession) =>
-    streamAnalyzeImage(
-      {
-        backendBaseUrl,
-        quickActionId,
-        promptTemplate,
-        imageBytes,
-        appVersion: app.getVersion(),
-        platform: process.platform,
-        sessionToken: activeSession.token,
-        sessionClockOffsetMs: activeSession.serverClockOffsetMs,
-        question: trimmedQuestion
-      },
-      streamHandlers
-    );
-
   const startLocalStream = async () =>
     streamAnalyzeImageLocally(
       {
@@ -1868,35 +1750,30 @@ async function analyzeExistingImage(
       streamHandlers
     );
 
-  let analysis: Awaited<ReturnType<typeof streamAnalyzeImage>>;
+  let analysis: Awaited<ReturnType<typeof streamAnalyzeImageLocally>>;
   try {
-    analysis = useGateway && session ? await startGatewayStream(session) : await startLocalStream();
+    analysis = await startLocalStream();
   } catch (error) {
-    if (useGateway && error instanceof GatewayRequestError && error.status === 401) {
-      session = await fetchBackendSession(true);
-      analysis = await startGatewayStream(session);
-    } else {
-      if (!isCaptureSessionActive(captureSessionId)) {
-        return;
-      }
-
-      pushResultStreamState({
-        status: 'error',
-        quickActionId,
-        text: '',
-        message: getErrorMessage(error),
-        selection,
-        webSearchInProgress: false
-      });
-      throw error;
+    if (!isCaptureSessionActive(captureSessionId)) {
+      return;
     }
+
+    pushResultStreamState({
+      status: 'error',
+      quickActionId,
+      text: '',
+      message: getErrorMessage(error),
+      selection,
+      webSearchInProgress: false
+    });
+    throw error;
   }
 
   if (!isCaptureSessionActive(captureSessionId)) {
     return;
   }
 
-  markCapturePerf('backend-request-complete', {
+  markCapturePerf('analysis-request-complete', {
     model: analysis.model,
     usedFallback: analysis.usedFallback
   });
@@ -2270,8 +2147,6 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
         message: `The shortcut "${nextSettings.shortcut}" could not be registered on this system.`,
         settings,
         shortcutRegistered,
-        backendConfigured: !getAnalysisConfigurationIssue(),
-        backendBaseUrl: backendBaseUrl || null,
         credentialStatuses: getProviderCredentialStatuses()
       };
     }
@@ -2291,8 +2166,6 @@ async function saveSettingsPatch(patch: SaveSettingsInput): Promise<SaveSettings
     message: messageParts.join(' '),
     settings,
     shortcutRegistered,
-    backendConfigured: !getAnalysisConfigurationIssue(),
-    backendBaseUrl: backendBaseUrl || null,
     credentialStatuses: getProviderCredentialStatuses()
   };
 }
@@ -2523,7 +2396,6 @@ app.whenReady().then(async () => {
   }
 
   const appConfig = loadAppConfig();
-  backendBaseUrl = appConfig?.backendBaseUrl ?? '';
   updateGithubOwner = appConfig?.updateGithubOwner ?? '';
   updateGithubRepo = appConfig?.updateGithubRepo ?? '';
   appManagedDefaults = {
@@ -2622,7 +2494,6 @@ app.whenReady().then(async () => {
   });
 
   registerShortcut(settings.shortcut);
-  void warmBackendSession();
   installIpcHandlers();
   createTray();
   configureAutoUpdater();

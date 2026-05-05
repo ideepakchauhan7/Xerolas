@@ -7,7 +7,7 @@ The open-source safety model is BYOK by default:
 - users add their own Anthropic, OpenAI, Gemini, or OpenRouter key in Settings
 - provider keys are stored outside `settings.json` using Electron OS encryption
 - the renderer only sees redacted key status, never the saved key
-- screenshots are sent only to the selected provider or an explicitly configured self-hosted gateway
+- screenshots are sent only to the selected provider
 - no Xerolas-owned provider key is committed, packaged, or required for public source builds
 
 The public release setup remains free:
@@ -15,7 +15,7 @@ The public release setup remains free:
 - public source repo without shipping maintainer-owned API keys
 - GitHub Releases in the main `Xerolas` repo for downloads and updater metadata
 - public landing page at `https://xerolas.vercel.app`
-- no paid services
+- no paid distribution infrastructure
 - no custom domain
 - no license flow
 
@@ -31,7 +31,7 @@ The packaged desktop app should ship with:
 
 - `updateGithubOwner = ideepakchauhan7`
 - `updateGithubRepo = Xerolas`
-- no default `backendBaseUrl`; users configure a provider key locally
+- no bundled provider key; users configure their own provider key locally
 
 Installers and updater metadata are published through the main public repo releases at `https://github.com/ideepakchauhan7/Xerolas/releases`.
 
@@ -67,42 +67,25 @@ Track the launch loop without hidden telemetry:
 
 Do not add silent desktop telemetry without an explicit opt-in design and privacy copy.
 
-## Optional self-hosted gateway
+## Contributing
 
-The Cloudflare Worker backend is still available for users who want a self-hosted gateway instead of direct local BYOK provider calls. Configure `backendBaseUrl` through `build/app-config.json`, `config/app-config.local.json`, or `CONTEXT_AI_BACKEND_URL`.
+The public repo is intentionally focused on the desktop app. There is no hosted Xerolas backend, no maintainer-owned AI key, and no hidden release infrastructure required to work on the code.
 
-Required secrets:
-
-```bash
-npx wrangler secret put GEMINI_API_KEY
-npx wrangler secret put CONTEXT_AI_SESSION_SECRET
-```
-
-Backend abuse controls are enabled by default: desktop requests without a browser `Origin` are allowed, browser origins are denied unless explicitly configured, session bootstrap is rate-limited, analyze requests are rate-limited per session, and oversized capture payloads are rejected before provider calls.
-
-Optional Worker variables/secrets:
-
-- `CONTEXT_AI_ALLOWED_ORIGINS` comma-separated browser origins to allow, for example `https://xerolas.vercel.app`; leave unset to block browser-origin calls.
-- `CONTEXT_AI_SESSION_RATE_LIMIT_PER_MINUTE` defaults to `12`.
-- `CONTEXT_AI_ANALYZE_RATE_LIMIT_PER_MINUTE` defaults to `30`.
-
-Optional free-model fallback when Gemini is at capacity:
+Contributor setup:
 
 ```bash
-npx wrangler secret put OPENROUTER_API_KEY
+npm install
+npm run typecheck
+npm run build
 ```
 
-By default the OpenRouter fallback uses `openrouter/free` without OpenRouter web search. Official OpenRouter docs say web search can incur extra costs even with free models, so only enable it if you intentionally accept that tradeoff:
+Run locally:
 
 ```bash
-npx wrangler secret put CONTEXT_AI_OPENROUTER_ENABLE_WEB_SEARCH # set to true
+npm run dev
 ```
 
-Deploy:
-
-```bash
-npm run deploy:worker
-```
+Then open Settings in the app and add your own provider key. Keep real keys out of commits, screenshots, logs, and issue reports.
 
 ## GitHub Releases
 

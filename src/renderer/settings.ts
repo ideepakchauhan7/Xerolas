@@ -118,8 +118,6 @@ form.addEventListener('submit', async (event) => {
   renderSettings({
     settings: response.settings,
     shortcutRegistered: response.shortcutRegistered,
-    backendConfigured: response.backendConfigured,
-    backendBaseUrl: response.backendBaseUrl,
     credentialStatuses: response.credentialStatuses
   });
   statusText.textContent = response.success ? 'Saved.' : response.message;
